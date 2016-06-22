@@ -32,6 +32,19 @@
     #undef WOLFMQTT_DEBUG_CLIENT
 #endif
 
+/* statements only for non-blocking */
+#if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
+#define SWITCH(s) switch(s)
+#define CASE(c)   client->stat = c ; case c:
+#define IF(c)     if(c)
+#define RETURN(rc)    return(rc)
+#else
+#define SWITCH(s)
+#define CASE(c)
+#define IF(c)
+#define RETURN(rc)
+#endif
+
 /* Private functions */
 static int MqttClient_WaitType(MqttClient *client, int timeout_ms,
     byte wait_type, word16 wait_packet_id, void* p_decode)
@@ -43,6 +56,7 @@ static int MqttClient_WaitType(MqttClient *client, int timeout_ms,
     int packet_len;
 
     while (1) {
+        IF(client->stat == MQTT_CL_BEGIN) {
         /* Wait for packet */
         rc = MqttPacket_Read(client, client->rx_buf, client->rx_buf_len,
             timeout_ms);
@@ -58,7 +72,7 @@ static int MqttClient_WaitType(MqttClient *client, int timeout_ms,
         PRINTF("Read Packet: Len %d, Type %d, Qos %d",
             packet_len, msg_type, msg_qos);
 #endif
-
+        }
         switch(msg_type) {
             case MQTT_PACKET_TYPE_CONNECT_ACK:
             {
@@ -74,7 +88,11 @@ static int MqttClient_WaitType(MqttClient *client, int timeout_ms,
             }
             case MQTT_PACKET_TYPE_PUBLISH:
             {
+            #if defined(WOLFMQTT_NONBLOCK)
+                #define msg    client->msg
+            #else
                 MqttMessage msg;
+            #endif
                 byte msg_new = 1;
                 byte msg_done;
 
@@ -83,6 +101,10 @@ static int MqttClient_WaitType(MqttClient *client, int timeout_ms,
                 if (rc <= 0) { return rc; }
 
                 /* Handle packet callback and read remaining payload */
+                #if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
+                client->stat = MQTT_CL_WAIT_PAYLOAD ;
+                #endif
+                
                 do {
                     /* Determine if message is done */
                     msg_done =
@@ -121,7 +143,11 @@ static int MqttClient_WaitType(MqttClient *client, int timeout_ms,
                     }
                     msg_new = 0;
                 } while (!msg_done);
-
+                
+            }
+            #if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
+            client->stat = MQTT_CL_BEGIN ;
+            #endif
                 /* Handle Qos */
                 if (msg_qos > MQTT_QOS_0) {
                     MqttPublishResp publish_resp;
@@ -146,7 +172,7 @@ static int MqttClient_WaitType(MqttClient *client, int timeout_ms,
                     if (rc != packet_len) { return rc; }
                 }
                 break;
-            }
+
             case MQTT_PACKET_TYPE_PUBLISH_ACK:
             case MQTT_PACKET_TYPE_PUBLISH_REC:
             case MQTT_PACKET_TYPE_PUBLISH_REL:
@@ -270,6 +296,9 @@ int MqttClient_Init(MqttClient *client, MqttNet* net,
     client->rx_buf_len = rx_buf_len;
     client->cmd_timeout_ms = cmd_timeout_ms;
 
+#if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
+    client->stat = MQTT_CL_BEGIN ;
+#endif
     /* Init socket */
     rc = MqttSocket_Init(client, net);
 
@@ -284,7 +313,7 @@ int MqttClient_Connect(MqttClient *client, MqttConnect *connect)
     if (client == NULL || connect == NULL) {
         return MQTT_CODE_ERROR_BAD_ARG;
     }
-
+    if(client->stat == MQTT_CL_BEGIN){
     /* Encode the connect packet */
     rc = MqttEncode_Connect(client->tx_buf, client->tx_buf_len, connect);
     if (rc <= 0) { return rc; }
@@ -293,7 +322,7 @@ int MqttClient_Connect(MqttClient *client, MqttConnect *connect)
     /* Send connect packet */
     rc = MqttPacket_Write(client, client->tx_buf, len);
     if (rc != len) { return rc; }
-
+    }
     /* Wait for connect ack packet */
     rc = MqttClient_WaitType(client, client->cmd_timeout_ms,
         MQTT_PACKET_TYPE_CONNECT_ACK, 0, &connect->ack);

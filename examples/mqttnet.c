@@ -222,6 +222,9 @@ static int NetConnect(void *context, const char* host, word16 port,
     CASE(SOCK_BEGIN)
     
 #if defined(MICROCHIP_MPLAB_HARMONY)
+
+#define htons(p) (((p)<<8)&0xff00 | ((p)>>8)&0xff)
+
     {
         struct hostent *hostInfo;
         

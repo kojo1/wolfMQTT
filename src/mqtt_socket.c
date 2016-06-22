@@ -33,6 +33,13 @@
     #undef WOLFMQTT_DEBUG_SOCKET
 #endif
 
+#if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
+#define IF(c)     if(c)
+#define RETURN(rc)    return(rc)
+#else
+#define IF(c)
+#define RETURN(rc)
+#endif
 
 /* Private Functions */
 #ifdef ENABLE_MQTT_TLS
@@ -139,7 +146,13 @@ int MqttSocket_Write(MqttClient *client, const byte* buf, int buf_len,
 
 int MqttSocket_Read(MqttClient *client, byte* buf, int buf_len, int timeout_ms)
 {
+#if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
+    int rc ;
+    #define pos  client->read.pos
+    #define len  client->read.len
+#else
     int rc, pos, len;
+#endif
 
     /* Validate arguments */
     if (client == NULL || client->net == NULL || client->net->read == NULL ||
@@ -177,12 +190,14 @@ int MqttSocket_Read(MqttClient *client, byte* buf, int buf_len, int timeout_ms)
         if (rc > 0) {
             pos += rc;
             len -= rc;
+            #if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
+            return MQTT_CODE_CONTINUE ;
+            #endif
         }
         else {
             break;
         }
     } while (len > 0);
-
     /* Check for timeout */
     if (rc == 0) {
         rc = MQTT_CODE_ERROR_TIMEOUT;
@@ -268,6 +283,7 @@ int MqttSocket_Connect(MqttClient *client, const char* host, word16 port,
                 rc = -1;
             }
         }
+        IF(rc == MQTT_CODE_CONTINUE)RETURN rc ;
         else {
             PRINTF("MqttSocket_TlsConnect: TLS callback error!");
             rc = -1;

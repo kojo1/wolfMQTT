@@ -84,7 +84,19 @@ typedef struct _MqttClient {
     MqttTls      tls;   /* WolfSSL context for TLS */
 #endif
 
+#if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
+    enum {
+        MQTT_CL_BEGIN,
+        MQTT_CL_CONN,
+        MQTT_CL_WAIT_PAYLOAD,
+    } stat ;
+#endif
     MqttMsgCb    msg_cb;
+    MqttMessage  msg;
+    struct {
+        int pos ;
+        int len ;
+    } read ;
 } MqttClient;
 
 
