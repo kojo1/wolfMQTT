@@ -171,7 +171,6 @@ static int mqttclient_message_cb(MqttClient *client, MqttMessage *msg,
 
 #if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
 /* making following data access to the control block */
-#define stat           mqtt_ctl->stat
 #define client         mqtt_ctl->client
 #define net            mqtt_ctl->net
 #define port           mqtt_ctl->port
@@ -191,8 +190,8 @@ static int mqttclient_message_cb(MqttClient *client, MqttMessage *msg,
 #define test_mode      mqtt_ctl->test_mode
 
 /* statements only for non-blocking */
-#define SWITCH(s) switch(s)
-#define CASE(c)   case c:
+#define SWITCH(stat) switch(mqtt_ctl->stat)
+#define CASE(c)   mqtt_ctl->stat = c ; case c:
 #define IF(c)     if(c)
 #define RETURN(rc)    return(rc)
 #else
@@ -206,7 +205,7 @@ static int mqttclient_message_cb(MqttClient *client, MqttMessage *msg,
 #ifdef WOLFMQTT_NONBLOCK 
 void mqttclient_test_init(MQTT_nbCtl *mqtt_ctl)
 {    
-    stat = WMQ_BEGIN ;
+    mqtt_ctl->stat = WMQ_BEGIN ;
 }
 
 int mqttclient_test(void* args, MQTT_nbCtl *mqtt_ctl)
