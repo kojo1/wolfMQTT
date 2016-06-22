@@ -169,7 +169,7 @@ static int mqttclient_message_cb(MqttClient *client, MqttMessage *msg,
     return MQTT_CODE_SUCCESS;
 }
 
-#ifdef WOLFMQTT_NONBLOCK || MICROCHIP_MPLAB_HARMONY
+#if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
 /* making following data access to the control block */
 #define stat           mqtt_ctl->stat
 #define client         mqtt_ctl->client
@@ -346,7 +346,6 @@ int mqttclient_test(void* args)
     PRINTF("MQTT Socket Connect: %s (%d)",
         MqttClient_ReturnCodeToString(rc), rc);
 
-    IF(rc == MQTT_CODE_CONTINUE)RETURN(rc) ;
     if (rc != MQTT_CODE_SUCCESS)goto disconn ;
         
     CASE(WMQ_MQTT_CONN)
@@ -382,7 +381,6 @@ int mqttclient_test(void* args)
         PRINTF("MQTT Connect: %s (%d)",
             MqttClient_ReturnCodeToString(rc), rc);
 
-        IF(rc == MQTT_CODE_CONTINUE)RETURN(rc) ;
         if (rc != MQTT_CODE_SUCCESS)goto disconn ;
     
     CASE(WMQ_SUB)
@@ -421,7 +419,6 @@ int mqttclient_test(void* args)
             PRINTF("MQTT Subscribe: %s (%d)",
                 MqttClient_ReturnCodeToString(rc), rc);
                 
-            if(rc == MQTT_CODE_CONTINUE)return rc ;
             if (rc != MQTT_CODE_SUCCESS) {
                 goto exit;
             }
@@ -446,7 +443,6 @@ int mqttclient_test(void* args)
             PRINTF("MQTT Publish: Topic %s, %s (%d)",
                 publish.topic_name, MqttClient_ReturnCodeToString(rc), rc);
 
-            IF(rc == MQTT_CODE_CONTINUE)RETURN(rc) ;
             if (rc != MQTT_CODE_SUCCESS) {
                 goto exit;
             }
@@ -502,7 +498,6 @@ int mqttclient_test(void* args)
                 }
             }
             /* Check for error */
-            IF(rc == MQTT_CODE_CONTINUE)RETURN(rc) ;
             if (rc != MQTT_CODE_SUCCESS) {
                 goto exit;
             }
@@ -523,11 +518,13 @@ int mqttclient_test(void* args)
 
 /* Disconnect */
 disconn:
+    IF(rc == MQTT_CODE_CONTINUE)RETURN(rc) ;
     rc = MqttClient_NetDisconnect(&client);
     PRINTF("MQTT Socket Disconnect: %s (%d)",
     MqttClient_ReturnCodeToString(rc), rc);
 
 exit:
+    IF(rc == MQTT_CODE_CONTINUE)RETURN(rc) ;
     /* Free resources */
     if (tx_buf) WOLFMQTT_FREE(tx_buf);
     if (rx_buf) WOLFMQTT_FREE(rx_buf);
