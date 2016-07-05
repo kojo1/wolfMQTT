@@ -24,7 +24,7 @@
     #include <config.h>
 #endif
 
-#if !defined(WOLFMQTT_NONBLOCK) && !defined(MICROCHIP_MPLAB_HARMONY)
+#if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
 
 #include "wolfmqtt/mqtt_client.h"
 #include "mqttnet.h"
@@ -64,6 +64,24 @@
     #endif
     #include <rtcs.h>
     /* Note: Use "RTCS_geterror(sock->fd);" to get error number */
+
+#elif defined(MICROCHIP_MPLAB_HARMONY)
+#include "app.h"
+#include "wolfmqtt/mqtt_client.h"
+#include "mqttnet.h"
+
+#include "system_config.h"
+#include "tcpip/tcpip.h"
+#include <sys/errno.h>
+#include <errno.h>
+struct timeval {
+    int tv_sec ;
+    int tv_usec ;
+} ;
+
+#define SOCKET_INVALID (-1)
+#define SO_ERROR 0
+#define SOERROR_T uint8_t
 
 /* Linux */
 #else
@@ -145,6 +163,8 @@ static void tcp_set_nonblocking(SOCKET_T* sockfd)
     int ret = ioctlsocket(*sockfd, FIONBIO, &blocking);
     if (ret == SOCKET_ERROR)
         PRINTF("ioctlsocket failed!");
+#elif defined(MICROCHIP_MPLAB_HARMONY)
+    /* Do nothing */
 #else
     int flags = fcntl(*sockfd, F_GETFL, 0);
     if (flags < 0)

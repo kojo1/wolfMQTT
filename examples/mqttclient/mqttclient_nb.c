@@ -24,15 +24,15 @@
     #include <config.h>
 #endif
 
-#if !defined(WOLFMQTT_NONBLOCK) && !defined(MICROCHIP_MPLAB_HARMONY)
+#if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
 
 #include "wolfmqtt/mqtt_client.h"
 #include <wolfssl/options.h>
 
 #include <wolfssl/ssl.h>
-#include "mqttclient.h"
-#include "mqttnet.h"
-#include "mqttexample.h"
+#include "examples/mqttclient/mqttclient.h"
+#include "examples/mqttnet.h"
+#include "examples/mqttexample.h"
 
 /* Globals */
 int myoptind = 0;
@@ -171,7 +171,12 @@ static int mqttclient_message_cb(MqttClient *client, MqttMessage *msg,
     return MQTT_CODE_SUCCESS;
 }
 
-int mqttclient_test(void* args)
+void mqttclient_test_init(MQTT_nbCtl *mqtt_ctl) 
+{    
+
+}
+
+int mqttclient_test(void* args, MQTT_nbCtl *mqtt_ctl)
 {
     int rc;
     MqttClient client;

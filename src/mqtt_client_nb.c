@@ -24,7 +24,7 @@
     #include <config.h>
 #endif
 
-#if !defined(WOLFMQTT_NONBLOCK) && !defined(MICROCHIP_MPLAB_HARMONY)
+#if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
 
 #include "wolfmqtt/mqtt_client.h"
 
