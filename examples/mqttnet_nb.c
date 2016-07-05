@@ -1,4 +1,4 @@
-/* mqttnet.c
+/* mqttnet_nb.c
  *
  * Copyright (C) 2006-2016 wolfSSL Inc.
  *
@@ -25,9 +25,6 @@
 #endif
 
 #if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
-
-#include "wolfmqtt/mqtt_client.h"
-#include "mqttnet.h"
 
 /* FreeRTOS and LWIP */
 #ifdef FREERTOS
@@ -65,6 +62,7 @@
     #include <rtcs.h>
     /* Note: Use "RTCS_geterror(sock->fd);" to get error number */
 
+/* Microchip MPLABX Harmony, TCP/IP */
 #elif defined(MICROCHIP_MPLAB_HARMONY)
 #include "app.h"
 #include "wolfmqtt/mqtt_client.h"
@@ -82,6 +80,8 @@ struct timeval {
 #define SOCKET_INVALID (-1)
 #define SO_ERROR 0
 #define SOERROR_T uint8_t
+#undef  FD_ISSET
+#define FD_ISSET(f1, f2) (1==1)
 
 /* Linux */
 #else
@@ -135,12 +135,24 @@ struct timeval {
 #include "mqttexample.h"
 
 /* Local context for Net callbacks */
+typedef  enum {
+        SOCK_BEGIN = 0 ,
+        SOCK_SOCK,
+        SOCK_CONN,
+        SOCK_RCV ,
+    } NB_Stat ;
+
 typedef struct _SocketContext {
     SOCKET_T fd;
 #ifdef ENABLE_STDIN_CAPTURE
     byte stdin_cap_enable;
     byte stdin_has_data;
 #endif
+    /* Non-blocking context */
+    NB_Stat stat ;
+    int bytes ;
+    struct sockaddr_in addr ;    
+    /***   ***/
 } SocketContext;
 
 /* Private functions */
@@ -174,18 +186,23 @@ static void tcp_set_nonblocking(SOCKET_T* sockfd)
         PRINTF("fcntl set failed!");
 #endif
 }
-    
+
 static int NetConnect(void *context, const char* host, word16 port,
     int timeout_ms)
 {
     SocketContext *sock = (SocketContext*)context;
     int type = SOCK_STREAM;
-    struct sockaddr_in address;
+    /* struct sockaddr_in address; */
+    #define address sock->addr  /* keep it in the context for non-blocking mode */
     int rc;
     SOERROR_T so_error = 0;
     struct addrinfo *result = NULL;
     struct addrinfo hints;
 
+    /* Get address information for host and locate IPv4 */
+    switch(sock->stat) {
+    case SOCK_BEGIN:
+        
     XMEMSET(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
@@ -194,7 +211,25 @@ static int NetConnect(void *context, const char* host, word16 port,
     XMEMSET(&address, 0, sizeof(address));
     address.sin_family = AF_INET;
 
-    /* Get address information for host and locate IPv4 */
+    
+#if defined(MICROCHIP_MPLAB_HARMONY)
+    {
+        struct hostent *hostInfo;
+        
+        hostInfo = gethostbyname((char *)host);
+        if (hostInfo != NULL)
+        {
+            address.sin_port = port ; /* htons(port); */
+            address.sin_family = AF_INET;
+            XMEMCPY(&address.sin_addr.S_un,
+                        *(hostInfo->h_addr_list), sizeof(IPV4_ADDR));
+            #define IPADDR sock->addr.sin_addr.S_un.S_un_b
+            PRINTF("%d.%d.%d.%d\n", IPADDR.s_b1, IPADDR.s_b2, IPADDR.s_b3, IPADDR.s_b4);
+        } else {
+            return MQTT_CODE_CONTINUE ;
+        }
+    }
+#else
     rc = getaddrinfo(host, NULL, &hints, &result);
     if (rc >= 0 && result != NULL) {
         struct addrinfo* res = result;
@@ -220,14 +255,17 @@ static int NetConnect(void *context, const char* host, word16 port,
 
         freeaddrinfo(result);
     }
-
-    if (rc == 0) {
+    if (rc != 0) goto exit ;
+#endif
         /* Default to error */
         rc = -1;
 
         /* Create socket */
-        sock->fd = socket(address.sin_family, type, 0);
-        if (sock->fd != SOCKET_INVALID) {
+        sock->fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (sock->fd == SOCKET_INVALID) goto exit ;
+        sock->stat = SOCK_CONN ;
+    case SOCK_CONN:        
+        {
             fd_set fdset;
             struct timeval tv;
 
@@ -240,22 +278,34 @@ static int NetConnect(void *context, const char* host, word16 port,
             tcp_set_nonblocking(&sock->fd);
 
             /* Start connect */
+#if defined(MICROCHIP_MPLAB_HARMONY)
+            if (rc = connect(sock->fd, (struct sockaddr*)&address, sizeof(address)))
+#else
             connect(sock->fd, (struct sockaddr*)&address, sizeof(address));
 
             /* Wait for connect */
             if (select((int)SELECT_FD(sock->fd), NULL, &fdset, NULL, &tv) > 0)
-            {
+#endif
+            {               
                 socklen_t len = sizeof(so_error);
 
                 /* Check for error */
+                #if defined(MICROCHIP_MPLAB_HARMONY)
+                if(errno == EINPROGRESS){
+                    return MQTT_CODE_CONTINUE ;
+                }
+                #else
                 getsockopt(sock->fd, SOL_SOCKET, SO_ERROR, &so_error, &len);
                 if (so_error == 0) {
                     rc = 0; /* Success */
                 }
+                #endif
             }
         }
-    }
+    
+    } /* end of switch(sock->stat) */
 
+exit:
     /* Show error */
     if (rc != 0) {
         PRINTF("MqttSocket_Connect: Rc=%d, SoErr=%d", rc, so_error);
@@ -300,7 +350,7 @@ static int NetRead(void *context, byte* buf, int buf_len,
     int timeout_ms)
 {
     SocketContext *sock = (SocketContext*)context;
-    int rc = -1, bytes = 0;
+    int rc = -1, bytes ;
     SOERROR_T so_error = 0;
     fd_set recvfds, errfds;
     struct timeval tv;
@@ -309,21 +359,34 @@ static int NetRead(void *context, byte* buf, int buf_len,
         return MQTT_CODE_ERROR_BAD_ARG;
     }
 
+#if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
+    #define bytes sock->bytes
+
+#else
+    bytes = 0 ;
+
     /* Setup timeout and FD's */
     setup_timeout(&tv, timeout_ms);
     FD_ZERO(&recvfds);
     FD_SET(sock->fd, &recvfds);
     FD_ZERO(&errfds);
     FD_SET(sock->fd, &errfds);
-
+#endif
+    
 #ifdef ENABLE_STDIN_CAPTURE
     if (sock->stdin_cap_enable) {
         FD_SET(STDIN, &recvfds);
     }
 #endif
 
+    #if !defined(WOLFMQTT_NONBLOCK) && !defined(MICROCHIP_MPLAB_HARMONY)
     /* Loop until buf_len has been read, error or timeout */
     while (bytes < buf_len)
+    #else
+    #define select(a1, a2, a3, a4, a5) (1)
+    #define break   /* void out "break" statement in "if" block */
+    if (bytes < buf_len)
+    #endif
     {
         /* Wait for rx data to be available */
         rc = select((int)SELECT_FD(sock->fd), &recvfds, NULL, &errfds, &tv);
@@ -337,7 +400,10 @@ static int NetRead(void *context, byte* buf, int buf_len,
                                buf_len - bytes,
                                0);
                 if (rc <= 0) {
-                    rc = -1;
+                    if(errno == EWOULDBLOCK)
+                        return 0 ;
+                    else
+                        rc = -1;
                     break; /* Error */
                 }
                 else {
@@ -353,10 +419,13 @@ static int NetRead(void *context, byte* buf, int buf_len,
                 }
             }
 #endif
+
+#if !defined(WOLFMQTT_NONBLOCK) && !defined(MICROCHIP_MPLAB_HARMONY)
             if (FD_ISSET(sock->fd, &errfds)) {
                 rc = -1;
                 break;
             }
+#endif
         }
         else {
             break; /* timeout or signal */
@@ -377,9 +446,14 @@ static int NetRead(void *context, byte* buf, int buf_len,
     else {
         rc = bytes;
     }
-
+    bytes = 0 ;
     return rc;
 }
+
+#if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
+    #undef bytes
+    #undef break
+#endif
 
 static int NetDisconnect(void *context)
 {
@@ -395,15 +469,51 @@ static int NetDisconnect(void *context)
         }
     }
 
+#if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
+    sock->stat = SOCK_BEGIN ;
+    sock->bytes = 0 ;
+#endif
     return 0;
 }
 
 /* Public Functions */
+
 int MqttClientNet_Init(MqttNet* net)
 {
 #ifdef USE_WINDOWS_API
     WSADATA wsd;
     WSAStartup(0x0002, &wsd);
+    
+#endif
+
+#if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
+//{
+    static IPV4_ADDR    dwLastIP[2] = { {-1}, {-1} };
+    IPV4_ADDR           ipAddr;
+    int Dummy ;
+    int nNets;
+    int i ;
+    SYS_STATUS          stat ;
+    TCPIP_NET_HANDLE    netH;
+    
+    stat = TCPIP_STACK_Status(sysObj.tcpip);
+    if(stat < 0)return MQTT_CODE_CONTINUE ;
+    
+    nNets = TCPIP_STACK_NumberOfNetworksGet();
+    for (i = 0; i < nNets; i++) 
+    {
+        netH = TCPIP_STACK_IndexToNet(i);
+        ipAddr.Val = TCPIP_STACK_NetAddress(netH);
+        if(ipAddr.v[0] != 192)return MQTT_CODE_CONTINUE ;
+        if(dwLastIP[i].Val != ipAddr.Val)
+        {
+            dwLastIP[i].Val = ipAddr.Val;
+            PRINTF("%s", TCPIP_STACK_NetNameGet(netH));
+            PRINTF(" IP Address: ");
+            PRINTF("%d.%d.%d.%d\n", ipAddr.v[0], ipAddr.v[1], ipAddr.v[2], ipAddr.v[3]);
+        }
+    }
+//}
 #endif
 
     if (net) {
@@ -417,8 +527,12 @@ int MqttClientNet_Init(MqttNet* net)
             return MQTT_CODE_ERROR_MEMORY;
         }
         XMEMSET(net->context, 0, sizeof(SocketContext));
+        #if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
+        ((SocketContext*)(net->context))->stat = SOCK_BEGIN ;
+        #endif
     }
-    return 0;
+
+    return MQTT_CODE_SUCCESS;
 }
 
 int MqttClientNet_DeInit(MqttNet* net)
@@ -466,4 +580,4 @@ int MqttClientNet_CheckForCommand(MqttNet* net, byte* buffer, word32 length)
     return ret;
 }
 
-#endif /* !defined(WOLFMQTT_NONBLOCK) && !defined(MICROCHIP_MPLAB_HARMONY) */
+#endif /* defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY) */

@@ -68,6 +68,27 @@ enum MqttClientFlags {
     MQTT_CLIENT_FLAG_IS_TLS = 0x02,
 };
 
+#if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
+typedef    enum {
+        MQTT_CL_BEGIN,
+        MQTT_CL_WAIT_PAYLOAD,
+    } NB_CL_Stat ;
+
+typedef    enum {
+        MQTT_PK_BEGIN,
+    } NB_PK_Stat ;
+    
+typedef struct {
+    NB_PK_Stat stat ;
+    int header_len ;
+    int remain_len ;
+} MqttPkRead;
+
+typedef struct {
+        int pos ;
+        int len ;
+    } MqttSkRead  ;
+#endif
 
 /* Client structure */
 typedef struct _MqttClient {
@@ -84,7 +105,15 @@ typedef struct _MqttClient {
     MqttTls      tls;   /* WolfSSL context for TLS */
 #endif
 
+#if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
+    NB_CL_Stat stat ;
+    MqttPkRead packet;
+    MqttSkRead read  ;
+#endif
+
     MqttMsgCb    msg_cb;
+    MqttMessage  msg;
+
 } MqttClient;
 
 

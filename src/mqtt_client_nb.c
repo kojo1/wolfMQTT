@@ -29,7 +29,6 @@
 #include "wolfmqtt/mqtt_client.h"
 
 /* Options */
-
 #ifdef WOLFMQTT_NO_STDIO
     #undef WOLFMQTT_DEBUG_CLIENT
 #endif
@@ -48,7 +47,8 @@ static int MqttClient_WaitType(MqttClient *client, int timeout_ms,
         /* Wait for packet */
         rc = MqttPacket_Read(client, client->rx_buf, client->rx_buf_len,
             timeout_ms);
-        if (rc <= 0) { return rc; }
+        if(rc == MQTT_CODE_CONTINUE)return MQTT_CODE_CONTINUE ;
+        if (rc < 0) { return rc; }
         packet_len = rc;
 
         /* Determine packet type */
@@ -57,13 +57,15 @@ static int MqttClient_WaitType(MqttClient *client, int timeout_ms,
         msg_qos = MQTT_PACKET_FLAGS_GET_QOS(header->type_flags);
 
 #ifdef WOLFMQTT_DEBUG_CLIENT
-        PRINTF("Read Packet: Len %d, Type %d, Qos %d",
+        PRINTF("Read Packet: Len %d, Type %d, Qos %d\n",
             packet_len, msg_type, msg_qos);
 #endif
 
+        client->packet.stat = MQTT_PK_BEGIN ;
         switch(msg_type) {
             case MQTT_PACKET_TYPE_CONNECT_ACK:
             {
+
                 /* Decode connect ack */
                 MqttConnectAck connect_ack, *p_connect_ack = &connect_ack;
                 if (p_decode) {
@@ -76,7 +78,11 @@ static int MqttClient_WaitType(MqttClient *client, int timeout_ms,
             }
             case MQTT_PACKET_TYPE_PUBLISH:
             {
+            #if defined(WOLFMQTT_NONBLOCK)
+                #define msg    client->msg
+            #else
                 MqttMessage msg;
+            #endif
                 byte msg_new = 1;
                 byte msg_done;
 
@@ -85,6 +91,10 @@ static int MqttClient_WaitType(MqttClient *client, int timeout_ms,
                 if (rc <= 0) { return rc; }
 
                 /* Handle packet callback and read remaining payload */
+                #if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
+                client->stat = MQTT_CL_WAIT_PAYLOAD ;
+                #endif
+                
                 do {
                     /* Determine if message is done */
                     msg_done =
@@ -123,7 +133,7 @@ static int MqttClient_WaitType(MqttClient *client, int timeout_ms,
                     }
                     msg_new = 0;
                 } while (!msg_done);
-
+                
                 /* Handle Qos */
                 if (msg_qos > MQTT_QOS_0) {
                     MqttPublishResp publish_resp;
@@ -240,7 +250,7 @@ static int MqttClient_WaitType(MqttClient *client, int timeout_ms,
             break;
         }
     }
-
+    client->stat = MQTT_CL_BEGIN ;
     return MQTT_CODE_SUCCESS;
 }
 
@@ -272,6 +282,9 @@ int MqttClient_Init(MqttClient *client, MqttNet* net,
     client->rx_buf_len = rx_buf_len;
     client->cmd_timeout_ms = cmd_timeout_ms;
 
+#if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
+    client->stat = MQTT_CL_BEGIN ;
+#endif
     /* Init socket */
     rc = MqttSocket_Init(client, net);
 
@@ -286,8 +299,10 @@ int MqttClient_Connect(MqttClient *client, MqttConnect *connect)
     if (client == NULL || connect == NULL) {
         return MQTT_CODE_ERROR_BAD_ARG;
     }
-
-    /* Encode the connect packet */
+    
+    if(client->stat == MQTT_CL_BEGIN){
+    
+        /* Encode the connect packet */
     rc = MqttEncode_Connect(client->tx_buf, client->tx_buf_len, connect);
     if (rc <= 0) { return rc; }
     len = rc;
@@ -295,7 +310,9 @@ int MqttClient_Connect(MqttClient *client, MqttConnect *connect)
     /* Send connect packet */
     rc = MqttPacket_Write(client, client->tx_buf, len);
     if (rc != len) { return rc; }
-
+    client->stat++ ;
+    client->packet.stat == MQTT_PK_BEGIN ;
+    }
     /* Wait for connect ack packet */
     rc = MqttClient_WaitType(client, client->cmd_timeout_ms,
         MQTT_PACKET_TYPE_CONNECT_ACK, 0, &connect->ack);
@@ -311,15 +328,21 @@ int MqttClient_Publish(MqttClient *client, MqttPublish *publish)
     if (client == NULL || publish == NULL) {
         return MQTT_CODE_ERROR_BAD_ARG;
     }
-
+  
+    if(client->stat == MQTT_CL_BEGIN){
+    
     /* Encode the publish packet */
     rc = MqttEncode_Publish(client->tx_buf, client->tx_buf_len, publish);
     if (rc <= 0) { return rc; }
     len = rc;
+    client->stat++ ;
+    
+    }
 
     /* Send packet and payload */
     do {
         rc = MqttPacket_Write(client, client->tx_buf, len);
+        
         if (rc != len) { return rc; }
         publish->buffer_pos += publish->buffer_len;
         publish->buffer_len = 0;
@@ -364,15 +387,18 @@ int MqttClient_Subscribe(MqttClient *client, MqttSubscribe *subscribe)
         return MQTT_CODE_ERROR_BAD_ARG;
     }
 
+    if(client->stat == MQTT_CL_BEGIN){
+    
     /* Encode the subscribe packet */
     rc = MqttEncode_Subscribe(client->tx_buf, client->tx_buf_len, subscribe);
     if (rc <= 0) { return rc; }
     len = rc;
-
     /* Send subscribe packet */
     rc = MqttPacket_Write(client, client->tx_buf, len);
     if (rc != len) { return rc; }
-
+    client->stat++ ;
+    
+    }
     /* Wait for subscribe ack packet */
     rc = MqttClient_WaitType(client, client->cmd_timeout_ms,
         MQTT_PACKET_TYPE_SUBSCRIBE_ACK, subscribe->packet_id, &subscribe_ack);

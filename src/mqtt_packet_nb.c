@@ -708,15 +708,26 @@ int MqttPacket_Write(MqttClient *client, byte* tx_buf, int tx_buf_len)
 int MqttPacket_Read(MqttClient *client, byte* rx_buf, int rx_buf_len,
     int timeout_ms)
 {
-    int rc, len, header_len = 2, remain_len = 0;
+    /* packet read control block */
+    #define header_len    client->packet.header_len
+    #define remain_len    client->packet.remain_len
+    #define stat          client->packet.stat
+
+    int rc, len; 
     MqttPacket* header = (MqttPacket*)rx_buf;
+    
+    if(stat == MQTT_PK_BEGIN){
+        header_len = 2;
+        remain_len = 0;
 
-    /* Read fix header portion */
-    rc = MqttSocket_Read(client, &rx_buf[0], header_len, timeout_ms);
-    if (rc != header_len) {
-        return rc;
+        /* Read fix header portion */
+        rc = MqttSocket_Read(client, &rx_buf[0], header_len, timeout_ms);
+        if(rc == MQTT_CODE_CONTINUE)return MQTT_CODE_CONTINUE ;
+        if (rc != header_len) {
+            return -1;
+        }
+        stat++ ;
     }
-
     do {
         /* Try and decode remaining length */
         rc = MqttDecode_RemainLen(header, header_len, &remain_len);
@@ -733,7 +744,7 @@ int MqttPacket_Read(MqttClient *client, byte* rx_buf, int rx_buf_len,
         len = 1;
         rc = MqttSocket_Read(client, &rx_buf[header_len], len, timeout_ms);
         if (rc != len) {
-            return rc;
+            return MQTT_CODE_CONTINUE;
         }
         header_len += len;
     } while (header_len < MQTT_PACKET_MAX_SIZE);
@@ -753,6 +764,7 @@ int MqttPacket_Read(MqttClient *client, byte* rx_buf, int rx_buf_len,
     }
 
     /* Return read packet length */
+    stat = MQTT_PK_BEGIN ;
     return header_len + remain_len;
 }
 #endif
