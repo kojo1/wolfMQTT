@@ -335,9 +335,6 @@ int MqttClient_Publish(MqttClient *client, MqttPublish *publish)
     rc = MqttEncode_Publish(client->tx_buf, client->tx_buf_len, publish);
     if (rc <= 0) { return rc; }
     len = rc;
-    client->stat++ ;
-    
-    }
 
     /* Send packet and payload */
     do {
@@ -351,7 +348,7 @@ int MqttClient_Publish(MqttClient *client, MqttPublish *publish)
         if (publish->buffer_pos >= publish->total_len) {
             rc = MQTT_CODE_SUCCESS;
             break;
-        }
+        } else return MQTT_CODE_CONTINUE ;
 
         /* Build packet payload to send */
         len = (publish->total_len - publish->buffer_pos);
@@ -361,6 +358,9 @@ int MqttClient_Publish(MqttClient *client, MqttPublish *publish)
         publish->buffer_len = len;
         XMEMCPY(client->tx_buf, &publish->buffer[publish->buffer_pos], len);
     } while (publish->buffer_pos < publish->total_len);
+    
+        client->stat++ ;
+    }
 
     /* Handle QoS */
     if (publish->qos > MQTT_QOS_0) {
