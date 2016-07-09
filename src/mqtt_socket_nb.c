@@ -215,7 +215,8 @@ int MqttSocket_Connect(MqttClient *client, const char* host, word16 port,
         client->net->connect == NULL) {
         return MQTT_CODE_ERROR_BAD_ARG;
     }
-
+    
+    if((client->flags & MQTT_CLIENT_FLAG_IS_CONNECTED) == 0){
     /* Validate port */
     if (port == 0) {
         port = (use_tls) ? MQTT_SECURE_PORT : MQTT_DEFAULT_PORT;
@@ -228,72 +229,64 @@ int MqttSocket_Connect(MqttClient *client, const char* host, word16 port,
         return rc;
     }
     client->flags |= MQTT_CLIENT_FLAG_IS_CONNECTED;
-
+    
+    }
 #ifdef ENABLE_MQTT_TLS
     if (use_tls) {
-        /* Setup the WolfSSL library */
-        wolfSSL_Init();
-        
-        /* Issue callback to allow setup of the wolfSSL_CTX and cert 
-           verification settings */
-        rc = SSL_SUCCESS;
-        if (cb) {
-            rc = cb(client);
-        }
-        if (rc == SSL_SUCCESS) {
-            /* Create and initialize the WOLFSSL_CTX structure */
-            if (client->tls.ctx == NULL) {
-                /* Use defaults */
-                client->tls.ctx = wolfSSL_CTX_new(wolfTLSv1_2_client_method());
-                if (client->tls.ctx) {
-                    wolfSSL_CTX_set_verify(client->tls.ctx, SSL_VERIFY_NONE, 0);
-                }
+    
+        if (client->tls.ctx == NULL) {
+            /* Setup the WolfSSL library */
+            wolfSSL_Init();
+            /*wolfSSL_Debugging_ON() ;*/
+            /* Issue callback to allow setup of the wolfSSL_CTX and cert 
+                   verification settings */
+            rc = SSL_SUCCESS;
+            if (cb) {
+                rc = cb(client);
             }
-            if (client->tls.ctx) {
-                /* Seutp the async IO callbacks */
-                wolfSSL_SetIORecv(client->tls.ctx,
-                    MqttSocket_TlsSocketReceive);
-                wolfSSL_SetIOSend(client->tls.ctx,
+            if (rc != SSL_SUCCESS)goto exit ;
+        }
+            /* Create and initialize the WOLFSSL_CTX structure */
+        if (client->tls.ctx == NULL) {
+            /* Use defaults */
+            client->tls.ctx = wolfSSL_CTX_new(wolfTLSv1_2_client_method());
+            if (client->tls.ctx == NULL) { rc = -1 ;  goto exit ; }
+
+            wolfSSL_CTX_set_verify(client->tls.ctx, SSL_VERIFY_NONE, 0);
+        }
+            /* Seutp the async IO callbacks */
+        wolfSSL_SetIORecv(client->tls.ctx,
+                MqttSocket_TlsSocketReceive);
+        wolfSSL_SetIOSend(client->tls.ctx,
                     MqttSocket_TlsSocketSend);
 
-                client->tls.ssl = wolfSSL_new(client->tls.ctx);
-                if (client->tls.ssl) {
-                    wolfSSL_SetIOReadCtx(client->tls.ssl, (void *)client);
-                    wolfSSL_SetIOWriteCtx(client->tls.ssl, (void *)client);
+        if(client->tls.ssl == NULL) {
+            client->tls.ssl = wolfSSL_new(client->tls.ctx);
+            if (client->tls.ssl == NULL) { rc = -1 ;  goto exit ; }
+                
+            wolfSSL_SetIOReadCtx(client->tls.ssl, (void *)client);
+            wolfSSL_SetIOWriteCtx(client->tls.ssl, (void *)client);
+            wolfSSL_set_using_nonblock(client->tls.ssl, 1) ;
 
-                    rc = wolfSSL_connect(client->tls.ssl);
-                    if (rc == SSL_SUCCESS) {
-                        client->flags |= MQTT_CLIENT_FLAG_IS_TLS;
-                        rc = MQTT_CODE_SUCCESS;
-                    }
-                }
-                else {
-                    PRINTF("MqttSocket_TlsConnect: wolfSSL_new error!");
-                    rc = -1;
-                }
-            }
-            else {
-                PRINTF("MqttSocket_TlsConnect: wolfSSL_CTX_new error!");
-                rc = -1;
-            }
         }
-        if((rc == SSL_ERROR_WANT_READ) ||(rc == SSL_ERROR_WANT_WRITE))
-            return MQTT_CODE_CONTINUE ;
-        else {
-            PRINTF("MqttSocket_TlsConnect: TLS callback error!");
-            rc = -1;
-        }
+            
+        rc = wolfSSL_connect(client->tls.ssl);
+        if (rc != SSL_SUCCESS) goto exit ;
+            
+        client->flags |= MQTT_CLIENT_FLAG_IS_TLS;
+        rc = MQTT_CODE_SUCCESS;
+    }
 
-        /* Handle error case */
+    exit:
         if (rc) {
 #ifndef WOLFMQTT_NO_STDIO
         	const char* errstr = NULL;
             int errnum = 0;
-            if (client->tls.ssl) {
-                errnum = wolfSSL_get_error(client->tls.ssl, 0);
+            errnum = wolfSSL_get_error(client->tls.ssl, 0);
+            if((errnum == SSL_ERROR_WANT_READ) ||(errnum == SSL_ERROR_WANT_WRITE))
+                return MQTT_CODE_CONTINUE ; 
                 errstr = wolfSSL_ERR_reason_error_string(errnum);
-            }
-
+            
             PRINTF("MqttSocket_TlsConnect Error %d: Num %d, %s",
                 rc, errnum, errstr);
 #endif
@@ -303,7 +296,7 @@ int MqttSocket_Connect(MqttClient *client, const char* host, word16 port,
 
             rc = MQTT_CODE_ERROR_TLS_CONNECT;
         }
-    }
+
 #else
     (void)cb;
 #endif /* ENABLE_MQTT_TLS */

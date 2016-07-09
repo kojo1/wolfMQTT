@@ -36,10 +36,6 @@
 #include <wolfssl/options.h>
 #include <wolfssl/ssl.h>
 
-#if !defined(MICROCHIP_MPLAB_HARMONY)
-#include <wolfssl/wolfcrypt/error-crypt.h>
-#endif
-
 #endif
 
 /* Default Port Numbers */
