@@ -24,7 +24,7 @@
 
 #ifdef WOLFMQTT_NONBLOCK
 #define NO_MAIN_DRIVER
-
+ 
 /* MQTT Client status control block */
 enum MQTT_NB_Stat {
     WMQ_BEGIN,
