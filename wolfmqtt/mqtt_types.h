@@ -81,6 +81,7 @@ enum MqttPacketResponseCodes {
 
 #ifdef WOLFMQTT_NONBLOCK
     MQTT_CODE_CONTINUE = -101,
+    MQTT_CODE_ERROR_STAT = -102,
 #endif
 
 };

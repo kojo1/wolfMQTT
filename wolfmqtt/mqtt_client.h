@@ -71,7 +71,9 @@ enum MqttClientFlags {
 #if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
 typedef    enum {
         MQTT_CL_BEGIN,
-        MQTT_CL_WAIT_PAYLOAD,
+        MQTT_CL_WAIT,
+        MQTT_CL_PUB_PAYLOAD,
+        MQTT_CL_PUB_READPAYLOAD,
     } NB_CL_Stat ;
 
 typedef    enum {
@@ -109,6 +111,11 @@ typedef struct _MqttClient {
     NB_CL_Stat stat ;
     MqttPkRead packet;
     MqttSkRead read  ;
+    word16 packet_id ;
+    byte  msg_type ;
+    byte  msg_qos ;
+    byte  msg_new ;
+    int packet_len ;
 #endif
 
     MqttMsgCb    msg_cb;
