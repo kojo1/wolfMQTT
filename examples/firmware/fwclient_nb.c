@@ -166,7 +166,10 @@ static int fwfile_save(const char* filePath, byte* fileBuf, int fileLen)
         fileBuf == NULL) {
         return EXIT_FAILURE;
     }
-
+#if defined(NO_FILESYSTEM)
+    PRINTF("Entered fwfile_save(len=%d):No Filesystem\n", fileLen) ;
+    return fileLen ;
+#else
     /* Open file */
     file = fopen(filePath, "wb");
     if (file == NULL) {
@@ -190,6 +193,7 @@ exit:
         fclose(file);
     }
     return ret;
+#endif
 }
 
 static int fw_message_process(byte* buffer, word32 len)
