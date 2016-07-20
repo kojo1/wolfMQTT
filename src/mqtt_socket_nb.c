@@ -142,7 +142,6 @@ int MqttSocket_Read(MqttClient *client, byte* buf, int buf_len, int timeout_ms)
 #if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
     int rc ;
     #define pos  client->read.pos
-    #define len  client->read.len
 #else
     int rc, pos, len;
 #endif
@@ -153,13 +152,11 @@ int MqttSocket_Read(MqttClient *client, byte* buf, int buf_len, int timeout_ms)
         return MQTT_CODE_ERROR_BAD_ARG;
     }
 
-    pos = 0;
-    len = buf_len;
-    do {
+    {
 #ifdef ENABLE_MQTT_TLS
         if (client->flags & MQTT_CLIENT_FLAG_IS_TLS) {
             int error;
-            rc = wolfSSL_read(client->tls.ssl, (char*)&buf[pos], len);
+            rc = wolfSSL_read(client->tls.ssl, (char*)&buf[pos], buf_len-pos);
             error = wolfSSL_get_error(client->tls.ssl, 0);
 #ifdef WOLFMQTT_DEBUG_SOCKET
             PRINTF("MqttSocket_Read: Len=%d, Rc=%d, Error=%d",
@@ -172,7 +169,7 @@ int MqttSocket_Read(MqttClient *client, byte* buf, int buf_len, int timeout_ms)
         else
 #endif
         {
-            rc = client->net->read(client->net->context, &buf[pos], len,
+            rc = client->net->read(client->net->context, &buf[pos], buf_len-pos,
                 timeout_ms);
 
 #ifdef WOLFMQTT_DEBUG_SOCKET
@@ -182,15 +179,17 @@ int MqttSocket_Read(MqttClient *client, byte* buf, int buf_len, int timeout_ms)
 
         if (rc >= 0) {
             pos += rc;
-            len -= rc;
-            if(len == 0)return pos ;
-            else        return MQTT_CODE_CONTINUE ;
+            if(pos == buf_len)
+            {
+                pos = 0 ; 
+                return buf_len ;
+            } else
+                return MQTT_CODE_CONTINUE ;
         }
         else {
             if(rc == EWOULDBLOCK) return MQTT_CODE_CONTINUE ;
-            break;
         }
-    } while (len > 0);
+    }
     /* Check for timeout */
     if (rc == 0) {
         rc = MQTT_CODE_ERROR_TIMEOUT;
