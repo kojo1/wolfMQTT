@@ -30,7 +30,6 @@
 #include "wolfmqtt/mqtt_socket.h"
 
 /* Options */
-//#define WOLFMQTT_DEBUG_SOCKET
 #ifdef WOLFMQTT_NO_STDIO
     #undef WOLFMQTT_DEBUG_SOCKET
 #endif
@@ -141,7 +140,6 @@ int MqttSocket_Read(MqttClient *client, byte* buf, int buf_len, int timeout_ms)
 {
 #if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
     int rc ;
-    #define pos  client->read.pos
 #else
     int rc, pos, len;
 #endif
@@ -156,7 +154,8 @@ int MqttSocket_Read(MqttClient *client, byte* buf, int buf_len, int timeout_ms)
 #ifdef ENABLE_MQTT_TLS
         if (client->flags & MQTT_CLIENT_FLAG_IS_TLS) {
             int error;
-            rc = wolfSSL_read(client->tls.ssl, (char*)&buf[pos], buf_len-pos);
+            rc = wolfSSL_read(client->tls.ssl, (char*)&buf[client->read.pos], 
+                                                   buf_len-client->read.pos);
             error = wolfSSL_get_error(client->tls.ssl, 0);
 #ifdef WOLFMQTT_DEBUG_SOCKET
             PRINTF("MqttSocket_Read: Len=%d, Rc=%d, Error=%d",
@@ -169,7 +168,8 @@ int MqttSocket_Read(MqttClient *client, byte* buf, int buf_len, int timeout_ms)
         else
 #endif
         {
-            rc = client->net->read(client->net->context, &buf[pos], buf_len-pos,
+            rc = client->net->read(client->net->context, &buf[client->read.pos], 
+                                                      buf_len-client->read.pos,
                 timeout_ms);
 
 #ifdef WOLFMQTT_DEBUG_SOCKET
@@ -178,10 +178,10 @@ int MqttSocket_Read(MqttClient *client, byte* buf, int buf_len, int timeout_ms)
         }
 
         if (rc >= 0) {
-            pos += rc;
-            if(pos == buf_len)
+            client->read.pos += rc;
+            if(client->read.pos == buf_len)
             {
-                pos = 0 ; 
+                client->read.pos = 0 ; 
                 return buf_len ;
             } else
                 return MQTT_CODE_CONTINUE ;
@@ -198,7 +198,7 @@ int MqttSocket_Read(MqttClient *client, byte* buf, int buf_len, int timeout_ms)
         rc = MQTT_CODE_ERROR_NETWORK;
     }
     else {
-        rc = pos;
+        rc = client->read.pos;
     }
 
     return rc;

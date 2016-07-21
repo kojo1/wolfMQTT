@@ -336,8 +336,9 @@ int MqttClient_Connect(MqttClient *client, MqttConnect *connect)
     /* Send connect packet */
     rc = MqttPacket_Write(client, client->tx_buf, len);
     if (rc != len) { return rc; }
-    client->stat++ ;
+    client->stat = MQTT_CL_WAIT ;
     client->packet.stat == MQTT_PK_BEGIN ;
+    
     }
     /* Wait for connect ack packet */
     rc = MqttClient_WaitType(client, client->cmd_timeout_ms,
@@ -385,7 +386,7 @@ int MqttClient_Publish(MqttClient *client, MqttPublish *publish)
         XMEMCPY(client->tx_buf, &publish->buffer[publish->buffer_pos], len);
     } while (publish->buffer_pos < publish->total_len);
     
-        client->stat++ ;
+        client->stat = MQTT_CL_WAIT ;
     }
 
     /* Handle QoS */
@@ -422,7 +423,7 @@ int MqttClient_Subscribe(MqttClient *client, MqttSubscribe *subscribe)
     /* Send subscribe packet */
     rc = MqttPacket_Write(client, client->tx_buf, len);
     if (rc != len) { return rc; }
-    client->stat++ ;
+    client->stat = MQTT_CL_WAIT ;
     
     }
     /* Wait for subscribe ack packet */

@@ -78,6 +78,7 @@ typedef    enum {
 
 typedef    enum {
         MQTT_PK_BEGIN,
+        MQTT_PK_READ,
     } NB_PK_Stat ;
     
 typedef struct {

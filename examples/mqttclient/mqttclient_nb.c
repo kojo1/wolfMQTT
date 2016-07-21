@@ -174,32 +174,13 @@ static int mqttclient_message_cb(MqttClient *client, MqttMessage *msg,
     return MQTT_CODE_SUCCESS;
 }
 
+
 /* #if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY) */
 /* making following data access to the control block */
-#define stat           mqtt_ctl->stat
-#define client         mqtt_ctl->client
-#define net            mqtt_ctl->net
-#define port           mqtt_ctl->port
-#define host           mqtt_ctl->host
-#define use_tls        mqtt_ctl->use_tls
-#define Qos            mqtt_ctl->Qos
-#define Clean_session  mqtt_ctl->Clean_session
-#define Keep_alive_sec mqtt_ctl->Keep_alive_sec
-#define Client_id      mqtt_ctl->Client_id
-#define Enable_lwt     mqtt_ctl->Enable_lwt
-#define Username       mqtt_ctl->Username
-#define Password       mqtt_ctl->Password
-#define tx_buf         mqtt_ctl->tx_buf
-#define rx_buf         mqtt_ctl->rx_buf
-#define topicName      mqtt_ctl->topicName
-#define cmd_timeout_ms mqtt_ctl->cmd_timeout_ms
-#define test_mode      mqtt_ctl->test_mode
-
-//#define exit(s) return(s)
 
 void mqttclient_test_init(MQTT_nbCtl *mqtt_ctl) 
 {    
-    stat = WMQ_BEGIN ;
+    mqtt_ctl->stat = WMQ_BEGIN ;
 }
 /* #endif */
 
@@ -207,24 +188,24 @@ int mqttclient_test(void* args, MQTT_nbCtl *mqtt_ctl)
 {
     int rc ;
 
-    switch(stat) {
+    switch(mqtt_ctl->stat) {
 
     case WMQ_BEGIN:
     
-    port = 0;
-    host = DEFAULT_MQTT_HOST;
-    use_tls = 0;
-    Qos = DEFAULT_MQTT_QOS;
-    Clean_session = 1;
-    Keep_alive_sec = DEFAULT_KEEP_ALIVE_SEC;
-    Client_id = DEFAULT_CLIENT_ID;
-    Enable_lwt = 0;
-    Username = NULL;
-    Password = NULL;
-    tx_buf = NULL, rx_buf = NULL;
-    topicName = DEFAULT_TOPIC_NAME;
-    cmd_timeout_ms = DEFAULT_CMD_TIMEOUT_MS;
-    test_mode = 0;
+    mqtt_ctl->port = 0;
+    mqtt_ctl->host = DEFAULT_MQTT_HOST;
+    mqtt_ctl->use_tls = 0;
+    mqtt_ctl->qos = DEFAULT_MQTT_QOS;
+    mqtt_ctl->clean_session = 1;
+    mqtt_ctl->keep_alive_sec = DEFAULT_KEEP_ALIVE_SEC;
+    mqtt_ctl->client_id = DEFAULT_CLIENT_ID;
+    mqtt_ctl->enable_lwt = 0;
+    mqtt_ctl->username = NULL;
+    mqtt_ctl->password = NULL;
+    mqtt_ctl->tx_buf = NULL, mqtt_ctl->rx_buf = NULL;
+    mqtt_ctl->topicName = DEFAULT_TOPIC_NAME;
+    mqtt_ctl->cmd_timeout_ms = DEFAULT_CMD_TIMEOUT_MS;
+    mqtt_ctl->test_mode = 0;
 
     int argc = ((func_args*)args)->argc;
     char **argv = ((func_args*)args)->argv;
@@ -238,65 +219,64 @@ int mqttclient_test(void* args, MQTT_nbCtl *mqtt_ctl)
                 return(EXIT_SUCCESS);
 
             case 'h' :
-                host = myoptarg;
+                mqtt_ctl->host = myoptarg;
                 break;
 
             case 'p' :
-                port = (word16)XATOI(myoptarg);
-                if (port == 0) {
+                mqtt_ctl->port = (word16)XATOI(myoptarg);
+                if (mqtt_ctl->port == 0) {
                     return err_sys("Invalid Port Number!");
                 }
                 break;
 
             case 't':
-                use_tls = 1;
+                mqtt_ctl->use_tls = 1;
                 break;
 
             case 'c':
                 mTlsFile = myoptarg;
                 break;
-
             case 'q' :
-                Qos = (MqttQoS)((byte)XATOI(myoptarg));
-                if (Qos > MQTT_QOS_2) {
+                mqtt_ctl->qos = (MqttQoS)((byte)XATOI(myoptarg));
+                if (mqtt_ctl->qos > MQTT_QOS_2) {
                     return err_sys("Invalid QoS value!");
                 }
                 break;
 
             case 's':
-                Clean_session = 0;
+                mqtt_ctl->clean_session = 0;
                 break;
 
             case 'k':
-                Keep_alive_sec = XATOI(myoptarg);
+                mqtt_ctl->keep_alive_sec = XATOI(myoptarg);
                 break;
 
             case 'i':
-                Client_id = myoptarg;
+                mqtt_ctl->client_id = myoptarg;
                 break;
 
             case 'l':
-                Enable_lwt = 1;
+                mqtt_ctl->enable_lwt = 1;
                 break;
 
             case 'u':
-                Username = myoptarg;
+                mqtt_ctl->username = myoptarg;
                 break;
 
             case 'w':
-                Password = myoptarg;
+                mqtt_ctl->password = myoptarg;
                 break;
 
             case 'n':
-                topicName = myoptarg;
+                mqtt_ctl->topicName = myoptarg;
                 break;
 
             case 'C':
-                cmd_timeout_ms = XATOI(myoptarg);
+                mqtt_ctl->cmd_timeout_ms = XATOI(myoptarg);
                 break;
 
             case 'T':
-                test_mode = 1;
+                mqtt_ctl->test_mode = 1;
                 break;
 
             default:
@@ -308,71 +288,71 @@ int mqttclient_test(void* args, MQTT_nbCtl *mqtt_ctl)
     myoptind = 0; /* reset for test cases */
 
     /* Start example MQTT Client */
-    PRINTF("MQTT Client: QoS %d, Use TLS %d", Qos, use_tls);
-    stat++ ;
+    PRINTF("MQTT Client: QoS %d, Use TLS %d", mqtt_ctl->qos, mqtt_ctl->use_tls);
+    mqtt_ctl->stat = WMQ_INIT ;
+    
     case WMQ_INIT:
 
     /* Initialize Network */
-    rc = MqttClientNet_Init(&net);
+    rc = MqttClientNet_Init(&(mqtt_ctl->net));
     if (rc != MQTT_CODE_SUCCESS) {
         goto exit;
     }
     PRINTF("MQTT Net Init\n") ;
     /* Initialize MqttClient structure */
-    tx_buf = (byte*)WOLFMQTT_MALLOC(MAX_BUFFER_SIZE);
-    rx_buf = (byte*)WOLFMQTT_MALLOC(MAX_BUFFER_SIZE);
-    rc = MqttClient_Init(&client, &net, mqttclient_message_cb,
-        tx_buf, MAX_BUFFER_SIZE, rx_buf, MAX_BUFFER_SIZE,
-        cmd_timeout_ms);
+    mqtt_ctl->tx_buf = (byte*)WOLFMQTT_MALLOC(MAX_BUFFER_SIZE);
+    mqtt_ctl->rx_buf = (byte*)WOLFMQTT_MALLOC(MAX_BUFFER_SIZE);
+    rc = MqttClient_Init(&(mqtt_ctl->client), &(mqtt_ctl->net), mqttclient_message_cb,
+        mqtt_ctl->tx_buf, MAX_BUFFER_SIZE, mqtt_ctl->rx_buf, MAX_BUFFER_SIZE,
+        mqtt_ctl->cmd_timeout_ms);
     if (rc == MQTT_CODE_CONTINUE)return rc ;
     PRINTF("MQTT Init: %s (%d)",
         MqttClient_ReturnCodeToString(rc), rc);
     if (rc != MQTT_CODE_SUCCESS) {
         goto exit;
     }
+    mqtt_ctl->stat = WMQ_TCP_CONN ;
     
-    stat++ ;
     case WMQ_TCP_CONN:
     /* Connect to broker */
-    rc = MqttClient_NetConnect(&client, host, port,
-        DEFAULT_CON_TIMEOUT_MS, use_tls, mqttclient_tls_cb);
+    rc = MqttClient_NetConnect(&(mqtt_ctl->client), mqtt_ctl->host, mqtt_ctl->port,
+        DEFAULT_CON_TIMEOUT_MS, mqtt_ctl->use_tls, mqttclient_tls_cb);
     if (rc == MQTT_CODE_CONTINUE)return rc ;
     PRINTF("MQTT Socket Connect: %s (%d)",
         MqttClient_ReturnCodeToString(rc), rc);
 
     if (rc != MQTT_CODE_SUCCESS)goto disconn ;
         
-    stat++ ;
+    mqtt_ctl->stat = WMQ_MQTT_CONN ;
+
     case WMQ_MQTT_CONN:
         /* Define connect parameters -> MQTT_nbCtl */
         /* MqttConnect connect;      */
         /* MqttMessage lwt_msg;      */
-        #define Connect        mqtt_ctl->Connect
-        #define Lwt_msg        mqtt_ctl->Lwt_msg
-        
-        XMEMSET(&Connect, 0, sizeof(MqttConnect));
-        Connect.keep_alive_sec = Keep_alive_sec;
-        Connect.clean_session = Clean_session;
-        Connect.client_id = Client_id;
+
+        XMEMSET(&(mqtt_ctl->connect), 0, sizeof(MqttConnect));
+        mqtt_ctl->connect.keep_alive_sec = mqtt_ctl->keep_alive_sec;
+        mqtt_ctl->connect.clean_session = mqtt_ctl->clean_session;
+        mqtt_ctl->connect.client_id = mqtt_ctl->client_id;
         /* Last will and testament sent by broker to subscribers
             of topic when broker connection is lost */
-        XMEMSET(&Lwt_msg, 0, sizeof(Lwt_msg));
-        Connect.lwt_msg = &Lwt_msg;
-        Connect.enable_lwt = Enable_lwt;
-        if (Enable_lwt) {
+        XMEMSET(&(mqtt_ctl->lwt_msg), 0, sizeof(mqtt_ctl->lwt_msg));
+        mqtt_ctl->connect.lwt_msg = &(mqtt_ctl->lwt_msg);
+        mqtt_ctl->connect.enable_lwt = mqtt_ctl->enable_lwt;
+        if (mqtt_ctl->enable_lwt) {
             /* Send client id in LWT payload */
-            Lwt_msg.qos = Qos;
-            Lwt_msg.retain = 0;
-            Lwt_msg.topic_name = WOLFMQTT_TOPIC_NAME"lwttopic";
-            Lwt_msg.buffer = (byte*)Client_id;
-            Lwt_msg.total_len = (word16)XSTRLEN(Client_id);
+            mqtt_ctl->lwt_msg.qos = mqtt_ctl->qos;
+            mqtt_ctl->lwt_msg.retain = 0;
+            mqtt_ctl->lwt_msg.topic_name = WOLFMQTT_TOPIC_NAME"lwttopic";
+            mqtt_ctl->lwt_msg.buffer = (byte*)(mqtt_ctl->client_id);
+            mqtt_ctl->lwt_msg.total_len = (word16)XSTRLEN(mqtt_ctl->client_id);
         }
         /* Optional authentication */
-        Connect.username = Username;
-        Connect.password = Password;
+        mqtt_ctl->connect.username = mqtt_ctl->username;
+        mqtt_ctl->connect.password = mqtt_ctl->password;
 
         /* Send Connect and wait for Connect Ack */
-        rc = MqttClient_Connect(&client, &Connect);
+        rc = MqttClient_Connect(&(mqtt_ctl->client), &(mqtt_ctl->connect));
         if (rc == MQTT_CODE_CONTINUE)return rc ;
         PRINTF("MQTT Connect: %s (%d)",
             MqttClient_ReturnCodeToString(rc), rc);
@@ -381,8 +361,8 @@ int mqttclient_test(void* args, MQTT_nbCtl *mqtt_ctl)
         
             /* Validate Connect Ack info */
             PRINTF("MQTT Connect Ack: Return Code %u, Session Present %d",
-                Connect.ack.return_code,
-                (Connect.ack.flags & MQTT_CONNECT_ACK_FLAG_SESSION_PRESENT) ?
+                 mqtt_ctl->connect.ack.return_code,
+                (mqtt_ctl->connect.ack.flags & MQTT_CONNECT_ACK_FLAG_SESSION_PRESENT) ?
                     1 : 0
             );
         
@@ -391,28 +371,24 @@ int mqttclient_test(void* args, MQTT_nbCtl *mqtt_ctl)
             /* MqttUnsubscribe unsubscribe; */
             /* MqttTopic topics[1], *topic; */
             /* MqttPublish publish;         */
-            #define subscribe      mqtt_ctl->subscribe
-            #define unsubscribe    mqtt_ctl->unsubscribe
-            #define Topics         mqtt_ctl->Topics
-            #define topic          mqtt_ctl->topic
-            #define publish        mqtt_ctl->publish
 
             int i;
 
             /* Build list of topics */
-            Topics[0].topic_filter = topicName;
-            Topics[0].qos = Qos;
+            mqtt_ctl->topics[0].topic_filter = mqtt_ctl->topicName;
+            mqtt_ctl->topics[0].qos = mqtt_ctl->qos;
 
             /* Subscribe Topic */
-            XMEMSET(&subscribe, 0, sizeof(MqttSubscribe));
-            subscribe.packet_id = mqttclient_get_packetid();
-            subscribe.topic_count = sizeof(Topics)/sizeof(MqttTopic);
-            subscribe.topics = Topics;
+            XMEMSET(&(mqtt_ctl->subscribe), 0, sizeof(MqttSubscribe));
+            mqtt_ctl->subscribe.packet_id = mqttclient_get_packetid();
+            mqtt_ctl->subscribe.topic_count = sizeof(mqtt_ctl->topics)/sizeof(MqttTopic);
+            mqtt_ctl->subscribe.topics = mqtt_ctl->topics;
  
-        stat++ ;
+            mqtt_ctl->stat = WMQ_SUB ;
+
     case WMQ_SUB:
         {
-            rc = MqttClient_Subscribe(&client, &subscribe);
+            rc = MqttClient_Subscribe(&(mqtt_ctl->client), &mqtt_ctl->subscribe);
             if (rc == MQTT_CODE_CONTINUE)return rc ;
             
             PRINTF("MQTT Subscribe: %s (%d)",
@@ -421,28 +397,30 @@ int mqttclient_test(void* args, MQTT_nbCtl *mqtt_ctl)
             if (rc != MQTT_CODE_SUCCESS) {
                 goto exit;
             }
-            for (i = 0; i < subscribe.topic_count; i++) {
-                topic = &subscribe.topics[i];
+            for (i = 0; i < mqtt_ctl->subscribe.topic_count; i++) {
+                mqtt_ctl->topic = &(mqtt_ctl->subscribe.topics[i]);
                 PRINTF("  Topic %s, Qos %u, Return Code %u",
-                    topic->topic_filter, topic->qos, topic->return_code);
+                    mqtt_ctl->topic->topic_filter, mqtt_ctl->topic->qos, mqtt_ctl->topic->return_code);
             }
         }
 
             /* Publish Topic */
-            XMEMSET(&publish, 0, sizeof(MqttPublish));
-            publish.retain = 0;
-            publish.qos = Qos;
-            publish.duplicate = 0;
-            publish.topic_name = topicName;
-            publish.packet_id = mqttclient_get_packetid();
-            publish.buffer = (byte*)TEST_MESSAGE;
-            publish.total_len = (word16)XSTRLEN(TEST_MESSAGE);
-        stat++ ;
+            XMEMSET(&(mqtt_ctl->publish), 0, sizeof(MqttPublish));
+            mqtt_ctl->publish.retain = 0;
+            mqtt_ctl->publish.qos = mqtt_ctl->qos;
+            mqtt_ctl->publish.duplicate = 0;
+            mqtt_ctl->publish.topic_name = mqtt_ctl->topicName;
+            mqtt_ctl->publish.packet_id = mqttclient_get_packetid();
+            mqtt_ctl->publish.buffer = (byte*)TEST_MESSAGE;
+            mqtt_ctl->publish.total_len = (word16)XSTRLEN(TEST_MESSAGE);
+            
+            mqtt_ctl->stat=WMQ_PUB ;
+    
     case WMQ_PUB:
-            rc = MqttClient_Publish(&client, &publish);
+            rc = MqttClient_Publish(&(mqtt_ctl->client), &(mqtt_ctl->publish));
             if (rc == MQTT_CODE_CONTINUE)return rc ;
             PRINTF("MQTT Publish: Topic %s, %s (%d)",
-                publish.topic_name, MqttClient_ReturnCodeToString(rc), rc);
+                mqtt_ctl->publish.topic_name, MqttClient_ReturnCodeToString(rc), rc);
 
             if (rc != MQTT_CODE_SUCCESS) {
                 goto exit;
@@ -450,33 +428,34 @@ int mqttclient_test(void* args, MQTT_nbCtl *mqtt_ctl)
 
             /* Read Loop */
             PRINTF("MQTT Waiting for message...");
-            MqttClientNet_CheckForCommand_Enable(&net);
-            stat++ ;
+            MqttClientNet_CheckForCommand_Enable(&(mqtt_ctl->net));
+            mqtt_ctl->stat = WMQ_WAIT_MSG;
+            
     case WMQ_WAIT_MSG:
             while (mStopRead == 0) {
                 /* Try and read packet */
-                rc = MqttClient_WaitMessage(&client, cmd_timeout_ms);
+                rc = MqttClient_WaitMessage(&(mqtt_ctl->client), mqtt_ctl->cmd_timeout_ms);
                 if (rc == MQTT_CODE_CONTINUE)return rc ;
                 if (rc == MQTT_CODE_ERROR_TIMEOUT) {
                     /* Check to see if command data (stdin) is available */
-                    rc = MqttClientNet_CheckForCommand(&net, rx_buf, MAX_BUFFER_SIZE);
+                    rc = MqttClientNet_CheckForCommand(&(mqtt_ctl->net), mqtt_ctl->rx_buf, MAX_BUFFER_SIZE);
                     if (rc > 0) {
                         /* Publish Topic */
-                        XMEMSET(&publish, 0, sizeof(MqttPublish));
-                        publish.retain = 0;
-                        publish.qos = Qos;
-                        publish.duplicate = 0;
-                        publish.topic_name = topicName;
-                        publish.packet_id = mqttclient_get_packetid();
-                        publish.buffer = rx_buf;
-                        publish.total_len = (word16)rc;
-                        rc = MqttClient_Publish(&client, &publish);
+                        XMEMSET(&(mqtt_ctl->publish), 0, sizeof(MqttPublish));
+                        mqtt_ctl->publish.retain = 0;
+                        mqtt_ctl->publish.qos = mqtt_ctl->qos;
+                        mqtt_ctl->publish.duplicate = 0;
+                        mqtt_ctl->publish.topic_name = mqtt_ctl->topicName;
+                        mqtt_ctl->publish.packet_id = mqttclient_get_packetid();
+                        mqtt_ctl->publish.buffer = mqtt_ctl->rx_buf;
+                        mqtt_ctl->publish.total_len = (word16)rc;
+                        rc = MqttClient_Publish(&(mqtt_ctl->client), &(mqtt_ctl->publish));
                         PRINTF("MQTT Publish: Topic %s, %s (%d)",
-                            publish.topic_name, MqttClient_ReturnCodeToString(rc), rc);
+                            mqtt_ctl->publish.topic_name, MqttClient_ReturnCodeToString(rc), rc);
                     }
                     /* Keep Alive */
                     else {
-                        rc = MqttClient_Ping(&client);
+                        rc = MqttClient_Ping(&(mqtt_ctl->client));
                         if(rc == MQTT_CODE_CONTINUE)return(rc) ;
                         if (rc != MQTT_CODE_SUCCESS) {
                             PRINTF("MQTT Ping Keep Alive Error: %s (%d)",
@@ -496,7 +475,7 @@ int mqttclient_test(void* args, MQTT_nbCtl *mqtt_ctl)
                 }
 
                 /* Exit if test mode */
-                if (test_mode) {
+                if (mqtt_ctl->test_mode) {
                     break;
                 }
             }
@@ -506,11 +485,11 @@ int mqttclient_test(void* args, MQTT_nbCtl *mqtt_ctl)
             }
 
             /* Unsubscribe Topics */
-            XMEMSET(&unsubscribe, 0, sizeof(MqttUnsubscribe));
-            unsubscribe.packet_id = mqttclient_get_packetid();
-            unsubscribe.topic_count = sizeof(Topics)/sizeof(MqttTopic);
-            unsubscribe.topics = Topics;
-            rc = MqttClient_Unsubscribe(&client, &unsubscribe);
+            XMEMSET(&(mqtt_ctl->unsubscribe), 0, sizeof(MqttUnsubscribe));
+            mqtt_ctl->unsubscribe.packet_id = mqttclient_get_packetid();
+            mqtt_ctl->unsubscribe.topic_count = sizeof(mqtt_ctl->topics)/sizeof(MqttTopic);
+            mqtt_ctl->unsubscribe.topics = mqtt_ctl->topics;
+            rc = MqttClient_Unsubscribe(&(mqtt_ctl->client), &(mqtt_ctl->unsubscribe));
             PRINTF("MQTT Unsubscribe: %s (%d)",
                 MqttClient_ReturnCodeToString(rc), rc);
             if (rc != MQTT_CODE_SUCCESS) {
@@ -522,18 +501,18 @@ int mqttclient_test(void* args, MQTT_nbCtl *mqtt_ctl)
 /* Disconnect */
 disconn:
     if(rc == MQTT_CODE_CONTINUE)return(rc) ;
-    rc = MqttClient_NetDisconnect(&client);
+    rc = MqttClient_NetDisconnect(&(mqtt_ctl->client));
     PRINTF("MQTT Socket Disconnect: %s (%d)",
     MqttClient_ReturnCodeToString(rc), rc);
 
 exit:
     if(rc == MQTT_CODE_CONTINUE)return(rc) ;
     /* Free resources */
-    if (tx_buf) WOLFMQTT_FREE(tx_buf);
-    if (rx_buf) WOLFMQTT_FREE(rx_buf);
+    if (mqtt_ctl->tx_buf) WOLFMQTT_FREE(mqtt_ctl->tx_buf);
+    if (mqtt_ctl->rx_buf) WOLFMQTT_FREE(mqtt_ctl->rx_buf);
 
     /* Cleanup network */
-    MqttClientNet_DeInit(&net);
+    MqttClientNet_DeInit(&(mqtt_ctl->net));
 
     /* Set return code */
     ((func_args*)args)->return_code = (rc == 0) ? 0 : EXIT_FAILURE;

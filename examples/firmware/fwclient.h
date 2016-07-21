@@ -44,23 +44,23 @@ typedef struct {
     word16 port;
     const char* host ;
     int use_tls ;
-    MqttQoS Qos ;
-    byte Clean_session ;
-    word16 Keep_alive_sec ;
-    const char* Client_id ;
-    int Enable_lwt ;
-    const char* Username ;
-    const char* Password ;
+    MqttQoS qos ;
+    byte clean_session ;
+    word16 keep_alive_sec ;
+    const char* client_id ;
+    int enable_lwt ;
+    const char* username ;
+    const char* password ;
     byte *tx_buf, *rx_buf;
     const char* topicName;
     word32 cmd_timeout_ms;
     byte test_mode ;
     
-    MqttConnect Connect;
-    MqttMessage Lwt_msg;
+    MqttConnect connect;
+    MqttMessage lwt_msg;
     MqttSubscribe subscribe; 
     MqttUnsubscribe unsubscribe;
-    MqttTopic Topics[1], *topic;
+    MqttTopic topics[1], *topic;
     MqttPublish publish;
 } MQTT_nbCtl ;
 #endif 

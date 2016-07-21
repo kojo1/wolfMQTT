@@ -193,7 +193,6 @@ static int NetConnect(void *context, const char* host, word16 port,
     SocketContext *sock = (SocketContext*)context;
     int type = SOCK_STREAM;
     /* struct sockaddr_in address; */
-    #define address sock->addr  /* keep it in the context for non-blocking mode */
     int rc;
     SOERROR_T so_error = 0;
     struct addrinfo *result = NULL;
@@ -208,8 +207,8 @@ static int NetConnect(void *context, const char* host, word16 port,
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = IPPROTO_TCP;
 
-    XMEMSET(&address, 0, sizeof(address));
-    address.sin_family = AF_INET;
+    XMEMSET(&(sock->addr), 0, sizeof(sock->addr));
+    sock->addr.sin_family = AF_INET;
 
     
 #if defined(MICROCHIP_MPLAB_HARMONY)
@@ -219,9 +218,9 @@ static int NetConnect(void *context, const char* host, word16 port,
         hostInfo = gethostbyname((char *)host);
         if (hostInfo != NULL)
         {
-            address.sin_port = port ; /* htons(port); */
-            address.sin_family = AF_INET;
-            XMEMCPY(&address.sin_addr.S_un,
+            sock->addr.sin_port = port ; /* htons(port); */
+            sock->addr.sin_family = AF_INET;
+            XMEMCPY(&(sock->addr.sin_addr.S_un),
                         *(hostInfo->h_addr_list), sizeof(IPV4_ADDR));
             #define IPADDR sock->addr.sin_addr.S_un.S_un_b
             PRINTF("%d.%d.%d.%d\n", IPADDR.s_b1, IPADDR.s_b2, IPADDR.s_b3, IPADDR.s_b4);
@@ -244,9 +243,9 @@ static int NetConnect(void *context, const char* host, word16 port,
         }
 
         if (result->ai_family == AF_INET) {
-            address.sin_port = htons(port);
-            address.sin_family = AF_INET;
-            address.sin_addr =
+            sock->addr.sin_port = htons(port);
+            sock->addr.sin_family = AF_INET;
+            sock->addr.sin_addr =
                 ((struct sockaddr_in*)(result->ai_addr))->sin_addr;
         }
         else {
@@ -279,9 +278,9 @@ static int NetConnect(void *context, const char* host, word16 port,
 
             /* Start connect */
 #if defined(MICROCHIP_MPLAB_HARMONY)
-            if (rc = connect(sock->fd, (struct sockaddr*)&address, sizeof(address)))
+            if (rc = connect(sock->fd, (struct sockaddr*)&(sock->addr), sizeof(sock->addr)))
 #else
-            connect(sock->fd, (struct sockaddr*)&address, sizeof(address));
+            connect(sock->fd, (struct sockaddr*)&(sock->addr), sizeof(sock->addr));
 
             /* Wait for connect */
             if (select((int)SELECT_FD(sock->fd), NULL, &fdset, NULL, &tv) > 0)
@@ -487,7 +486,7 @@ int MqttClientNet_Init(MqttNet* net)
 #endif
 
 #if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
-//{
+
     static IPV4_ADDR    dwLastIP[2] = { {-1}, {-1} };
     IPV4_ADDR           ipAddr;
     int Dummy ;
@@ -513,7 +512,7 @@ int MqttClientNet_Init(MqttNet* net)
             PRINTF("%d.%d.%d.%d\n", ipAddr.v[0], ipAddr.v[1], ipAddr.v[2], ipAddr.v[3]);
         }
     }
-//}
+
 #endif
 
     if (net) {
