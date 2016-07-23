@@ -24,10 +24,7 @@
     #include <config.h>
 #endif
 
-#if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
 #define WOLFSSL_MAX_ERROR_SZ 80
-#endif
-
 #include "wolfmqtt/mqtt_client.h"
 #include <wolfssl/options.h>
 
@@ -51,6 +48,9 @@ static int mPacketIdLast;
 #define TEST_MESSAGE            "test"
 
 #if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
+#ifndef NO_MAIN_DRIVER
+#define NO_MAIN_DRIVER
+#endif
 #define ERROR_EXIT(c) return (c)
 #else
 #define ERROR_EXIT(c) exit(c)
@@ -183,8 +183,6 @@ static int mqttclient_message_cb(MqttClient *client, MqttMessage *msg,
     return MQTT_CODE_SUCCESS;
 }
 
-#if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
-
 void mqttclient_test_init(MQTT_nbCtl *mqtt_ctl) 
 {    
     mqtt_ctl->stat = WMQ_BEGIN ;
@@ -200,7 +198,7 @@ int mqttclient_test(void* args, MQTT_nbCtl *mqtt_ctl)
     switch(mqtt_ctl->stat) {
 
     case WMQ_BEGIN:
-    
+
     mqtt_ctl->port = 0;
     mqtt_ctl->host = DEFAULT_MQTT_HOST;
     mqtt_ctl->use_tls = 0;
@@ -215,37 +213,6 @@ int mqttclient_test(void* args, MQTT_nbCtl *mqtt_ctl)
     mqtt_ctl->topicName = DEFAULT_TOPIC_NAME;
     mqtt_ctl->cmd_timeout_ms = DEFAULT_CMD_TIMEOUT_MS;
     mqtt_ctl->test_mode = 0;
-
-#else
-
-int mqttclient_test(void* args, MQTT_nbCtl *mqtt_ctl)
-{
-    int rc;
-    int     argc = ((func_args*)args)->argc;
-    char**  argv = ((func_args*)args)->argv;
-
-    MqttClient client;
-    MqttNet net;
-    word16 port = 0;
-    const char* host = DEFAULT_MQTT_HOST;
-    int use_tls = 0;
-    MqttQoS qos = DEFAULT_MQTT_QOS;
-    byte clean_session = 1;
-    word16 keep_alive_sec = DEFAULT_KEEP_ALIVE_SEC;
-    const char* client_id = DEFAULT_CLIENT_ID;
-    int enable_lwt = 0;
-    const char* username = NULL;
-    const char* password = NULL;
-    byte *tx_buf = NULL, *rx_buf = NULL;
-    const char* topicName = DEFAULT_TOPIC_NAME;
-    word32 cmd_timeout_ms = DEFAULT_CMD_TIMEOUT_MS;
-    byte test_mode = 0;
-
-    switch(mqtt_ctl->stat) {
-
-    case WMQ_BEGIN:
-
-#endif
 
     ((func_args*)args)->return_code = -1; /* error state */
 
@@ -525,7 +492,7 @@ int mqttclient_test(void* args, MQTT_nbCtl *mqtt_ctl)
             }
             
     } /* end of non-blocking SWITCH */
-
+    rc = MQTT_CODE_SUCCESS;
             /* Disconnect */
 disconn:
     if(rc == MQTT_CODE_CONTINUE)return(rc) ;
@@ -591,7 +558,7 @@ exit:
             PRINTF("Can't catch SIGINT");
         }
 #endif
-
+        mqttclient_test_init  (&mqtt_ctl) ;
         mqttclient_test(&args, &mqtt_ctl);
 
         return args.return_code;

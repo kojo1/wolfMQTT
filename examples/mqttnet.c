@@ -138,9 +138,7 @@ struct timeval {
 /* Local context for Net callbacks */
 typedef  enum {
         SOCK_BEGIN = 0 ,
-        SOCK_SOCK,
         SOCK_CONN,
-        SOCK_RCV ,
     } NB_Stat ;
 
 typedef struct _SocketContext {
@@ -243,9 +241,9 @@ static int NetConnect(void *context, const char* host, word16 port,
         }
 
         if (result->ai_family == AF_INET) {
-            sock->address.sin_port = htons(port);
-            sock->address.sin_family = AF_INET;
-            sock->address.sin_addr =
+            sock->addr.sin_port = htons(port);
+            sock->addr.sin_family = AF_INET;
+            sock->addr.sin_addr =
                 ((struct sockaddr_in*)(result->ai_addr))->sin_addr;
         }
         else {
@@ -264,7 +262,7 @@ static int NetConnect(void *context, const char* host, word16 port,
         #if defined(MICROCHIP_MPLAB_HARMONY)
         sock->fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         #else
-        sock->fd = socket(address.sin_family, type, 0);
+        sock->fd = socket(sock->addr.sin_family, type, 0);
         #endif
         if (sock->fd == SOCKET_INVALID) goto exit ;
         sock->stat = SOCK_CONN ;
@@ -306,6 +304,8 @@ static int NetConnect(void *context, const char* host, word16 port,
                 #endif
             }
         }
+    default:
+        rc = -1 ;
     } /* end of switch(sock->stat) */
 
 exit:
@@ -353,7 +353,7 @@ static int NetRead(void *context, byte* buf, int buf_len,
     int timeout_ms)
 {
     SocketContext *sock = (SocketContext*)context;
-    int rc = -1, bytes = 0;
+    int rc = -1;
     SOERROR_T so_error = 0;
     fd_set recvfds, errfds;
     struct timeval tv;
@@ -361,13 +361,10 @@ static int NetRead(void *context, byte* buf, int buf_len,
     if (context == NULL || buf == NULL || buf_len <= 0) {
         return MQTT_CODE_ERROR_BAD_ARG;
     }
-
-#if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
-    #define bytes sock->bytes
-
-#else
-    bytes = 0 ;
-
+    
+    sock->bytes = 0 ;
+    
+#if !defined(WOLFMQTT_NONBLOCK) && !defined(MICROCHIP_MPLAB_HARMONY)
     /* Setup timeout and FD's */
     setup_timeout(&tv, timeout_ms);
     FD_ZERO(&recvfds);
@@ -384,10 +381,10 @@ static int NetRead(void *context, byte* buf, int buf_len,
 
     #if !defined(WOLFMQTT_NONBLOCK) && !defined(MICROCHIP_MPLAB_HARMONY)
     /* Loop until buf_len has been read, error or timeout */
-    while (bytes < buf_len)
+    while (sock->bytes < buf_len)
     {
     #else
-    if (bytes < buf_len)
+    if (sock->bytes < buf_len)
     do {
     #endif
 
@@ -402,8 +399,8 @@ static int NetRead(void *context, byte* buf, int buf_len,
                 /* Try and read number of buf_len provided,
                     minus what's already been read */
                 rc = (int)SOCK_RECV(sock->fd,
-                               &buf[bytes],
-                               buf_len - bytes,
+                               &buf[sock->bytes],
+                               buf_len - sock->bytes,
                                0);
                 if (rc <= 0) {
                     if(errno == EWOULDBLOCK)
@@ -413,7 +410,7 @@ static int NetRead(void *context, byte* buf, int buf_len,
                     break; /* Error */
                 }
                 else {
-                    bytes += rc; /* Data */
+                    sock->bytes += rc; /* Data */
                 }
             }
 #ifdef ENABLE_STDIN_CAPTURE
@@ -451,9 +448,9 @@ static int NetRead(void *context, byte* buf, int buf_len,
         }
     }
     else {
-        rc = bytes;
+        rc = sock->bytes;
     }
-    bytes = 0 ;
+    sock->bytes = 0 ;
     return rc;
 }
 
@@ -472,7 +469,7 @@ static int NetDisconnect(void *context)
     }
 
     sock->stat = SOCK_BEGIN ;
-    bytes = 0 ;
+    sock->bytes = 0 ;
     return 0;
 }
 

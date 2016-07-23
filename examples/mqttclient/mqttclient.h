@@ -22,9 +22,6 @@
 #ifndef WOLFMQTT_MQTTCLIENT_H
 #define WOLFMQTT_MQTTCLIENT_H
 
-#ifdef WOLFMQTT_NONBLOCK
-#define NO_MAIN_DRIVER
- 
 /* MQTT Client status control block */
 enum MQTT_NB_Stat {
     WMQ_BEGIN,
@@ -62,15 +59,11 @@ typedef struct {
     MqttTopic topics[1], *topic;
     MqttPublish publish;
 } MQTT_nbCtl ;
-#endif 
 
 /* Exposed functions */
-#ifdef WOLFMQTT_NONBLOCK
 void mqttclient_test_init(MQTT_nbCtl *mqtt_ctl);
 int mqttclient_test(void* args, MQTT_nbCtl *mqtt_ctl);
-#else
-int mqttclient_test(void* args);
-#endif
+
 
 
 #endif /* WOLFMQTT_MQTTCLIENT_H */

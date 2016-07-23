@@ -188,7 +188,7 @@ int MqttSocket_Read(MqttClient *client, byte* buf, int buf_len, int timeout_ms)
         else {
             break;
         }
-    } while (client->read.pos == buf_len);
+    } while (client->read.pos < buf_len);
 #else
         if (rc >= 0) {
             client->read.pos += rc;

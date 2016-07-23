@@ -79,10 +79,8 @@ enum MqttPacketResponseCodes {
     MQTT_CODE_ERROR_NETWORK = -8,
     MQTT_CODE_ERROR_MEMORY = -9,
 
-#ifdef WOLFMQTT_NONBLOCK
     MQTT_CODE_CONTINUE = -101,
     MQTT_CODE_ERROR_STAT = -102,
-#endif
 
 };
 
