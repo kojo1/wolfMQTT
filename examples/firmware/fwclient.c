@@ -402,13 +402,12 @@ int fwclient_test(void* args, MQTT_nbCtl *mqtt_ctl)
 
     /* Start example MQTT Client */
     PRINTF("MQTT Firmware Client: QoS %d, Use TLS %d", mqtt_ctl->qos, mqtt_ctl->use_tls);
-    mqtt_ctl->stat = WMQ_INIT ;
     
     case WMQ_INIT:
 
     /* Initialize Network */
     rc = MqttClientNet_Init(&(mqtt_ctl->net));
-    if (rc == MQTT_CODE_CONTINUE)return rc ;
+    mqtt_ctl->stat = WMQ_INIT ; if (rc == MQTT_CODE_CONTINUE)return rc ;
     PRINTF("MQTT Net Init: %s (%d)",
         MqttClient_ReturnCodeToString(rc), rc);
     if (rc != MQTT_CODE_SUCCESS) {
@@ -422,13 +421,11 @@ int fwclient_test(void* args, MQTT_nbCtl *mqtt_ctl)
     rc = MqttClient_Init(&(mqtt_ctl->client), &(mqtt_ctl->net), mqttclient_message_cb,
         mqtt_ctl->tx_buf, MAX_BUFFER_SIZE, mqtt_ctl->rx_buf, MAX_BUFFER_SIZE,
         mqtt_ctl->cmd_timeout_ms);
-    if (rc == MQTT_CODE_CONTINUE)return rc ;
     PRINTF("MQTT Init: %s (%d)",
         MqttClient_ReturnCodeToString(rc), rc);
     if (rc != MQTT_CODE_SUCCESS) {
         goto exit;
     }
-    mqtt_ctl->stat = WMQ_TCP_CONN ;
     
     case WMQ_TCP_CONN:
 
@@ -436,12 +433,10 @@ int fwclient_test(void* args, MQTT_nbCtl *mqtt_ctl)
     rc = MqttClient_NetConnect(&(mqtt_ctl->client), mqtt_ctl->host, mqtt_ctl->port, 
                                DEFAULT_CON_TIMEOUT_MS,
         mqtt_ctl->use_tls, mqttclient_tls_cb);
-    if (rc == MQTT_CODE_CONTINUE)return rc ;
+    mqtt_ctl->stat = WMQ_TCP_CONN ; if (rc == MQTT_CODE_CONTINUE)return rc ;
     PRINTF("MQTT Socket Connect: %s (%d, len=%d)",
         MqttClient_ReturnCodeToString(rc), rc, mqtt_ctl->client.rx_buf_len);
     if (rc != MQTT_CODE_SUCCESS)goto disconn ;
-        
-    mqtt_ctl->stat = WMQ_MQTT_CONN ;
     
     case WMQ_MQTT_CONN:
 
@@ -458,7 +453,7 @@ int fwclient_test(void* args, MQTT_nbCtl *mqtt_ctl)
 
         /* Send Connect and wait for Connect Ack */
         rc = MqttClient_Connect(&(mqtt_ctl->client), &(mqtt_ctl->connect));
-        if (rc == MQTT_CODE_CONTINUE)return rc ;
+        mqtt_ctl->stat = WMQ_MQTT_CONN ; if (rc == MQTT_CODE_CONTINUE)return rc ;
         PRINTF("MQTT Connect: %s (%d)",
             MqttClient_ReturnCodeToString(rc), rc);
 
@@ -487,8 +482,8 @@ int fwclient_test(void* args, MQTT_nbCtl *mqtt_ctl)
         {
             int i ;
             rc = MqttClient_Subscribe(&(mqtt_ctl->client), &(mqtt_ctl->subscribe));
-            if (rc == MQTT_CODE_CONTINUE)return rc ;
-            
+            mqtt_ctl->stat = WMQ_SUB ; if (rc == MQTT_CODE_CONTINUE)return rc ;
+
             PRINTF("MQTT Subscribe: %s (%d, len = %d)",
                 MqttClient_ReturnCodeToString(rc), rc, mqtt_ctl->client.rx_buf_len);
 
@@ -504,7 +499,6 @@ int fwclient_test(void* args, MQTT_nbCtl *mqtt_ctl)
             }
             /* Read Loop */
             PRINTF("MQTT Waiting for message...");
-            mqtt_ctl->stat = WMQ_WAIT_MSG ;
         }
             
         case WMQ_WAIT_MSG:
@@ -513,7 +507,7 @@ int fwclient_test(void* args, MQTT_nbCtl *mqtt_ctl)
                 /* Try and read packet */
                 rc = MqttClient_WaitMessage(&(mqtt_ctl->client), 
                                               mqtt_ctl->cmd_timeout_ms);
-                if (rc == MQTT_CODE_CONTINUE)return rc ;
+                mqtt_ctl->stat = WMQ_WAIT_MSG ; if (rc == MQTT_CODE_CONTINUE)return rc ;
                 if (rc == MQTT_CODE_ERROR_TIMEOUT) {
                     /* Keep Alive */
                     rc = MqttClient_Ping(&(mqtt_ctl->client));
