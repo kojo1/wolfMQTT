@@ -303,7 +303,9 @@ static int NetConnect(void *context, const char* host, word16 port,
                 }
                 #endif
             }
+            break ;
         }
+
     default:
         rc = -1 ;
     } /* end of switch(sock->stat) */
