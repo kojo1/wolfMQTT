@@ -71,6 +71,7 @@ SUBSTITUTE GOODS, TECHNOLOGY, SERVICES, OR ANY CLAIMS BY THIRD PARTIES
 
 #include "app.h"
 #include "wolfmqtt/mqtt_client.h"
+#include "examples/mqttexample.h"
 #include "examples/firmware/fwclient.h"
 
 // *****************************************************************************
@@ -96,13 +97,8 @@ SUBSTITUTE GOODS, TECHNOLOGY, SERVICES, OR ANY CLAIMS BY THIRD PARTIES
 
 static APP_DATA appData;
 
-typedef struct {
-    int argc ;
-    char **argv ;
-}func_args ;
-
  static char *av[] =   {
-        "fwclient", "-t",
+        "fwclient", /*"-t",*/
  }    ;
  
 static func_args args= {
@@ -110,7 +106,7 @@ static func_args args= {
     av,
 };
 
-static MQTT_nbCtl mqtt_ctl ;
+static MQTTCtx mqttCtx ;
 
 // *****************************************************************************
 // *****************************************************************************
@@ -152,7 +148,7 @@ void APP_Initialize ( void )
     appData.state = APP_STATE_INIT;
     DBINIT();
     printf("===  Initializing wolfMQTT  ===\n") ;
-    fwclient_test_init(&mqtt_ctl);
+    mqttCtx.stat = WMQ_BEGIN ;
     /* TODO: Initialize your application's state machine and other
      * parameters.
      */
@@ -189,7 +185,7 @@ void APP_Tasks ( void )
 
         case APP_STATE_SERVICE_TASKS:
         {
-            fwclient_test(&args, &mqtt_ctl) ;
+            fwclient_test(&args, &mqttCtx) ;
             break;
         }
 

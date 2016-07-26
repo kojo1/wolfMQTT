@@ -73,15 +73,15 @@ typedef    enum {
         MQTT_CL_WAIT,
         MQTT_CL_PUB_PAYLOAD,
         MQTT_CL_PUB_READPAYLOAD,
-    } NB_CL_Stat ;
+    } MqttClStat ;
 
 typedef    enum {
         MQTT_PK_BEGIN,
         MQTT_PK_READ,
-    } NB_PK_Stat ;
+    } MqttPkStat ;
     
 typedef struct {
-    NB_PK_Stat stat ;
+    MqttPkStat stat ;
     int header_len ;
     int remain_len ;
 } MqttPkRead;
@@ -106,7 +106,7 @@ typedef struct _MqttClient {
     MqttTls      tls;   /* WolfSSL context for TLS */
 #endif
 
-    NB_CL_Stat stat ;
+    MqttClStat stat ;
     MqttPkRead packet;
     MqttSkRead read  ;
     word16 packet_id ;

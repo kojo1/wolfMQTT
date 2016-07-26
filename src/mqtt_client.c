@@ -83,7 +83,7 @@ static int MqttClient_WaitType(MqttClient *client, int timeout_ms,
                 byte msg_done;
                 if(client->msg_new) {
                 /* Decode publish message */
-                rc = MqttDecode_Publish(client->rx_buf, client->packet_len, &(client->msg));
+                rc = MqttDecode_Publish(client->rx_buf, client->packet_len, &client->msg);
                 if (rc <= 0) { return rc; }
                  }
                 /* Handle packet callback and read remaining payload */
@@ -102,7 +102,7 @@ static int MqttClient_WaitType(MqttClient *client, int timeout_ms,
                             client->msg.topic_name = NULL;
                             client->msg.topic_name_len = 0;
                         }
-                        rc = client->msg_cb(client, &(client->msg), client->msg_new, msg_done);
+                        rc = client->msg_cb(client, &client->msg, client->msg_new, msg_done);
                         if (rc != MQTT_CODE_SUCCESS) { return rc; };
                     }
                     client->msg_new = 0;

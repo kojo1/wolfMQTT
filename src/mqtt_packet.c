@@ -723,7 +723,7 @@ int MqttPacket_Read(MqttClient *client, byte* rx_buf, int rx_buf_len,
 
     do {
         /* Try and decode remaining length */
-        rc = MqttDecode_RemainLen(header, client->packet.header_len, &(client->packet.remain_len));
+        rc = MqttDecode_RemainLen(header, client->packet.header_len, &client->packet.remain_len);
         if (rc < 0) { /* Indicates error */
             return rc;
         }

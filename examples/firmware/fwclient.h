@@ -23,47 +23,8 @@
 #define WOLFMQTT_FWCLIENT_H
 
 
-/* MQTT Client status control block */
-enum MQTT_NB_Stat {
-    WMQ_BEGIN,
-    WMQ_INIT,
-    WMQ_TCP_CONN,
-    WMQ_MQTT_CONN,
-    WMQ_SUB,
-    WMQ_WAIT_MSG,
-} ;
-
-typedef struct {
-    enum MQTT_NB_Stat stat ;
-    MqttClient client;
-    MqttNet net;
-    word16 port;
-    const char* host ;
-    int use_tls ;
-    MqttQoS qos ;
-    byte clean_session ;
-    word16 keep_alive_sec ;
-    const char* client_id ;
-    int enable_lwt ;
-    const char* username ;
-    const char* password ;
-    byte *tx_buf, *rx_buf;
-    const char* topicName;
-    word32 cmd_timeout_ms;
-    byte test_mode ;
-    
-    MqttConnect connect;
-    MqttMessage lwt_msg;
-    MqttSubscribe subscribe; 
-    MqttUnsubscribe unsubscribe;
-    MqttTopic topics[1], *topic;
-    MqttPublish publish;
-} MQTT_nbCtl ;
-
-
 /* Exposed functions */
-void fwclient_test_init(MQTT_nbCtl *mqtt_ctl);
-int fwclient_test(void* args, MQTT_nbCtl *mqtt_ctl);
+int fwclient_test(void* args, MQTTCtx *mqttCtx);
 
 
 #endif /* WOLFMQTT_FWCLIENT_H */
