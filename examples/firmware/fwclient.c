@@ -539,6 +539,7 @@ int fwclient_test(void* args, MQTTCtx *mqttCtx)
             if (rc != MQTT_CODE_SUCCESS) {
                 goto exit;
             }
+        case WMQ_PUB:
         default:
             rc = MQTT_CODE_ERROR_STAT;
             goto exit ;
@@ -614,7 +615,7 @@ exit:
 #endif
 
     #if defined(ENABLE_FIRMWARE_EXAMPLE)
-        fwclient_test_init(&mqttCtx) ;
+        mqttCtx.stat = WMQ_BEGIN ;
         fwclient_test(&args, &mqttCtx);
     #else
         /* This example requires wolfSSL after 3.7.1 for signature wrapper */

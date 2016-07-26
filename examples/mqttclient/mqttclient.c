@@ -534,7 +534,7 @@ exit:
         args.argc = argc;
         args.argv = argv;
 
-        MQTT_nbCtl mqttCtx ;
+        MQTTCtx mqttCtx ;
 
 #ifdef USE_WINDOWS_API
         if (SetConsoleCtrlHandler((PHANDLER_ROUTINE)CtrlHandler, TRUE) == FALSE) {
@@ -545,7 +545,7 @@ exit:
             PRINTF("Can't catch SIGINT");
         }
 #endif
-        mqttclient_test_init  (&mqttCtx) ;
+        mqttCtx.stat = WMQ_BEGIN ;
         mqttclient_test(&args, &mqttCtx);
 
         return args.return_code;
