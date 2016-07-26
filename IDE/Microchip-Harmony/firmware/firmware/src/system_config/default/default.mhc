@@ -883,7 +883,7 @@ CONFIG_PROJECT_STANDALONE=n
 #
 # from project.hconfig
 #
-CONFIG_XC32_HEAP="44960"
+CONFIG_XC32_HEAP="100000"
 #
 # from isa.hconfig
 #
