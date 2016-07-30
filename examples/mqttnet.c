@@ -205,7 +205,7 @@ static int NetConnect(void *context, const char* host, word16 port,
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = IPPROTO_TCP;
 
-    XMEMSET(&(sock->addr), 0, sizeof(sock->addr));
+    XMEMSET(&sock->addr, 0, sizeof(sock->addr));
     sock->addr.sin_family = AF_INET;
 
     
@@ -218,7 +218,7 @@ static int NetConnect(void *context, const char* host, word16 port,
         {
             sock->addr.sin_port = port ; /* htons(port); */
             sock->addr.sin_family = AF_INET;
-            XMEMCPY(&(sock->addr.sin_addr.S_un),
+            XMEMCPY(&sock->addr.sin_addr.S_un,
                         *(hostInfo->h_addr_list), sizeof(IPV4_ADDR));
             #define IPADDR sock->addr.sin_addr.S_un.S_un_b
             PRINTF("%d.%d.%d.%d\n", IPADDR.s_b1, IPADDR.s_b2, IPADDR.s_b3, IPADDR.s_b4);
@@ -282,9 +282,9 @@ static int NetConnect(void *context, const char* host, word16 port,
 
             /* Start connect */
             #if defined(MICROCHIP_MPLAB_HARMONY)
-            if (rc = connect(sock->fd, (struct sockaddr*)&(sock->addr), sizeof(sock->addr)))
+            if (rc = connect(sock->fd, (struct sockaddr*)&sock->addr, sizeof(sock->addr)))
             #else
-            connect(sock->fd, (struct sockaddr*)&(sock->addr), sizeof(sock->addr));
+            connect(sock->fd, (struct sockaddr*)&sock->addr, sizeof(sock->addr));
 
             /* Wait for connect */
             if (select((int)SELECT_FD(sock->fd), NULL, &fdset, NULL, &tv) > 0)
