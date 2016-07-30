@@ -68,6 +68,28 @@ enum MqttClientFlags {
     MQTT_CLIENT_FLAG_IS_TLS = 0x02,
 };
 
+typedef    enum {
+        MQTT_CL_BEGIN,
+        MQTT_CL_WAIT,
+        MQTT_CL_PUB_PAYLOAD,
+        MQTT_CL_PUB_READPAYLOAD,
+    } NB_CL_Stat ;
+
+typedef    enum {
+        MQTT_PK_BEGIN,
+        MQTT_PK_READ,
+    } NB_PK_Stat ;
+    
+typedef struct {
+    NB_PK_Stat stat ;
+    int header_len ;
+    int remain_len ;
+} MqttPkRead;
+
+typedef struct {
+        int pos ;
+        int len ;
+    } MqttSkRead  ;
 
 /* Client structure */
 typedef struct _MqttClient {
@@ -84,7 +106,18 @@ typedef struct _MqttClient {
     MqttTls      tls;   /* WolfSSL context for TLS */
 #endif
 
+    NB_CL_Stat stat ;
+    MqttPkRead packet;
+    MqttSkRead read  ;
+    word16 packet_id ;
+    byte  msg_type ;
+    byte  msg_qos ;
+    byte  msg_new ;
+    int packet_len ;
+
     MqttMsgCb    msg_cb;
+    MqttMessage  msg;
+
 } MqttClient;
 
 
