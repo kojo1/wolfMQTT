@@ -504,12 +504,11 @@ int fwpush_test(void* args)
             publish.buffer = msgBuf;
             publish.total_len = msgLen;
             rc = MqttClient_Publish(&client, &publish);
+            PRINTF("MQTT Publish: Topic %s, %s (%d)",
+                publish.topic_name, MqttClient_ReturnCodeToString(rc), rc);
             if (rc != MQTT_CODE_SUCCESS) {
                 goto exit;
             }
-            PRINTF("MQTT Publish: Topic %s, %s (%d)",
-                publish.topic_name, MqttClient_ReturnCodeToString(rc), rc);
-
             /* Disconnect */
             rc = MqttClient_Disconnect(&client);
             if (rc != MQTT_CODE_SUCCESS) {

@@ -240,8 +240,9 @@ int MqttSocket_Connect(MqttClient *client, const char* host, word16 port,
 
     /* Connect to host */
     rc = client->net->connect(client->net->context, host, port, timeout_ms);
+    #if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
     if(rc == MQTT_CODE_CONTINUE)return rc ;
-
+    #endif
     if (rc != 0) {
         return rc;
     }
@@ -305,7 +306,9 @@ int MqttSocket_Connect(MqttClient *client, const char* host, word16 port,
             if (client->tls.ssl) {
                 errnum = wolfSSL_get_error(client->tls.ssl, 0);
                 if((errnum == SSL_ERROR_WANT_READ) ||(errnum == SSL_ERROR_WANT_WRITE))
-                return MQTT_CODE_CONTINUE ; 
+                #if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)              
+                    return MQTT_CODE_CONTINUE ;
+                #endif
                 errstr = wolfSSL_ERR_reason_error_string(errnum);
             }
 

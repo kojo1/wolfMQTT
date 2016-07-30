@@ -714,7 +714,9 @@ int MqttPacket_Read(MqttClient *client, byte* rx_buf, int rx_buf_len,
         
         /* Read fix header portion */
         rc = MqttSocket_Read(client, &rx_buf[0], client->packet.header_len, timeout_ms);
+        #if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
         if(rc == MQTT_CODE_CONTINUE)return MQTT_CODE_CONTINUE ;
+        #endif
         if (rc != client->packet.header_len) {
             return -1;
         }

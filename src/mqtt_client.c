@@ -46,7 +46,9 @@ static int MqttClient_WaitType(MqttClient *client, int timeout_ms,
         /* Wait for packet */
         rc = MqttPacket_Read(client, client->rx_buf, client->rx_buf_len,
             timeout_ms);
+#if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
         if(rc == MQTT_CODE_CONTINUE)return MQTT_CODE_CONTINUE ;
+#endif
         if (rc < 0) { return rc; }
         client->packet_len = rc;
 
@@ -120,10 +122,12 @@ static int MqttClient_WaitType(MqttClient *client, int timeout_ms,
                         }
                         rc = MqttSocket_Read(client, client->rx_buf, msg_len,
                             timeout_ms);
+#if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
                         if(rc == MQTT_CODE_CONTINUE){
                             client->stat = MQTT_CL_PUB_READPAYLOAD ;
                             return MQTT_CODE_CONTINUE ;
                         }
+#endif
                         if ((msg_len != 0) && (rc != msg_len)) { return rc; }
                         client->stat = MQTT_CL_PUB_PAYLOAD ;
 
@@ -134,9 +138,9 @@ static int MqttClient_WaitType(MqttClient *client, int timeout_ms,
 #if !defined(WOLFMQTT_NONBLOCK) && !defined(MICROCHIP_MPLAB_HARMONY)
                     client->msg_new = 0;
                 } while (!msg_done);
-#endif
-
+#else
                 if(!msg_done)return MQTT_CODE_CONTINUE ;
+#endif
                 client->stat = MQTT_CL_BEGIN ;
 
                 /* Handle Qos */
@@ -381,8 +385,11 @@ int MqttClient_Publish(MqttClient *client, MqttPublish *publish)
         if (publish->buffer_pos >= publish->total_len) {
             rc = MQTT_CODE_SUCCESS;
             break;
+#if defined(WOLFMQTT_NONBLOCK) || defined(MICROCHIP_MPLAB_HARMONY)
         } else return MQTT_CODE_CONTINUE ;
-
+#else
+        } 
+#endif
         /* Build packet payload to send */
         len = (publish->total_len - publish->buffer_pos);
         if (len > client->tx_buf_len) {
@@ -393,7 +400,8 @@ int MqttClient_Publish(MqttClient *client, MqttPublish *publish)
     } while (publish->buffer_pos < publish->total_len);
 
         client->stat = MQTT_CL_WAIT ;
-    }
+ 
+    } else rc = MQTT_CODE_SUCCESS ;
 
     /* Handle QoS */
     if (publish->qos > MQTT_QOS_0) {
