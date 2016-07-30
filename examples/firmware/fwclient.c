@@ -538,7 +538,7 @@ int fwclient_test(void* args, MQTTCtx *mqttCtx)
                 MqttClient_ReturnCodeToString(rc), rc);
             if (rc != MQTT_CODE_SUCCESS) {
                 goto exit;
-            }
+            } else goto disconn ;
         case WMQ_PUB:
         default:
             rc = MQTT_CODE_ERROR_STAT;
